@@ -1,2 +1,2 @@
 # montara
-montara package for simulating DES Y6 data
+package for simulating DES Y6 data
