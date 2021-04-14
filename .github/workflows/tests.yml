@@ -26,6 +26,7 @@ jobs:
         run: |
           conda install pytest flake8
           python -m pip install -e .
+          python -m pip install git+https://github.com/des-science/eastlake.git
 
       - name: test
         shell: bash -l {0}
