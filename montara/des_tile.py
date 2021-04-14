@@ -4,7 +4,7 @@ import numpy as np
 import yaml
 
 from galsim.config.output import OutputBuilder
-from .fits import writeMulti
+from eastlake.fits import writeMulti
 import astropy.io.fits as pyfits
 from .utils import safe_mkdir
 from .tile_setup import Tile
