@@ -27,5 +27,6 @@ dependencies:
   - pixmappy
   - joblib
   - lsstdesc-coord
+  - pip
   - pip:
-     - "git+https://github.com/esheldon/galsim_extra.git@y3-image-sims#egg=galsim_extra"
+     - "git+https://github.com/esheldon/galsim_extra.git@master#egg=galsim_extra"
