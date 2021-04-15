@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: null
+
+jobs:
+  tests:
+    name: tests
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: cancel previous runs
+        uses: styfle/cancel-workflow-action@0.9.0
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v2
+
+      - uses: webfactory/ssh-agent@v0.5.2
+        with:
+          ssh-private-key: ${{ secrets.ID_RSA_EASTLAKE }}
+
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: 3.8
+          channels: conda-forge,defaults
+          channel-priority: strict
+          show-channel-urls: true
+          environment-file: environment.yaml
+
+      - name: configure conda and install code
+        shell: bash -l {0}
+        run: |
+          conda install pytest flake8
+          python -m pip install -e .
+          python -m pip install git+https://github.com/des-science/eastlake.git
+
+      - name: test
+        shell: bash -l {0}
+        run: |
+          pytest -vvs montara
+
+      - name: lint
+        shell: bash -l {0}
+        run: |
+          flake8 montara
