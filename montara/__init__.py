@@ -1,10 +1,11 @@
-# flake8: noqa
-from . import des_tile
-from . import input_desstar
-from . import catalogsampler
-from . import catchffterror_stamp
-from . import utils
-from . import z_slice_shear
-from . import mixed_scene_postop
-from . import des_piff
-from . import badpixfromfits
+from . import des_tile  # noqa
+from . import input_desstar  # noqa
+from . import catalogsampler  # noqa
+from . import catchffterror_stamp  # noqa
+from . import utils  # noqa
+from . import z_slice_shear  # noqa
+from . import mixed_scene_postop  # noqa
+from . import badpixfromfits  # noqa
+from . import multiband_meds  # noqa
+from . import eastlake_step  # noqa
+from ._version import __version__  # noqa
