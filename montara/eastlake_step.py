@@ -444,4 +444,4 @@ class MontaraGalSimRunner(Step):
         self.config['output']['dir'] = base_dir
 
 
-eastlake.register_pipeline_step("galsim_montara", MontaraGalSimRunner)
+eastlake.register_pipeline_step("galsim_montara", MontaraGalSimRunner, is_galsim=True)
