@@ -689,6 +689,8 @@ class DESTileBuilder(OutputBuilder):
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
                 object_sep = L/nobj_per_row
                 for i in range(nobjects):
+                    # offset_x = 
+                    # offset_y = 
                     x_pos_list.append(
                         (object_sep/2. + object_sep * (i % nobj_per_row)))
                     y_pos_list.append(
