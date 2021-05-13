@@ -689,12 +689,13 @@ class DESTileBuilder(OutputBuilder):
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
                 object_sep = L/nobj_per_row
                 for i in range(nobjects):
-                    # offset_x = 
-                    # offset_y = 
+                    uniform = galsim.UniformDeviate(base['image']['random_seed'][0]) # choose 0, 1 or 2? 
+                    offset_x = uniform() - 0.5
+                    offset_y = uniform() - 0.5
                     x_pos_list.append(
-                        (object_sep/2. + object_sep * (i % nobj_per_row)))
+                        (object_sep/2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
-                        object_sep/2. + object_sep * (i // nobj_per_row))
+                        object_sep/2. + object_sep * (i // nobj_per_row) + offset_y)
                 coadd_wcs = tile_setup["coadd_wcs"]
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
