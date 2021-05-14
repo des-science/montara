@@ -110,15 +110,15 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             skysigma = orig_im_fits[1].header["SKYSIGMA"]
             var = skysigma**2
         elif params["noise_mode"] == "inverse_median_weight":
-            var = 1./np.median(orig_im_fits[3].data[orig_im_fits[2].data == 0])
+            var = 1. / np.median(orig_im_fits[3].data[orig_im_fits[2].data == 0])
         elif params["noise_mode"] == "median_inverse_weight":
             var = np.median(
-                1./(orig_im_fits[3].data[orig_im_fits[2].data == 0]))
+                1. / (orig_im_fits[3].data[orig_im_fits[2].data == 0]))
         elif params["noise_mode"] == "from_weight":
             inv_var = orig_im_fits[3].data
             unmasked = orig_im_fits[2].data == 0
             var = np.zeros_like(inv_var)
-            var[unmasked] = 1./inv_var[unmasked]
+            var[unmasked] = 1. / inv_var[unmasked]
             # weight map values in masked areas may be crazy
             # so assign the median here
             med = np.median(var[unmasked])
@@ -535,7 +535,7 @@ class DESTileBuilder(OutputBuilder):
                     field = base['input'][key]
                     loader = galsim.config.input.valid_input_types[key]
                     if (key in base['_input_objs'] and
-                            base['_input_objs']['desstar'+'_safe'][0]):
+                            base['_input_objs']['desstar' + '_safe'][0]):
                         star_input = base["_input_objs"][key][0]
                     else:
                         kwargs, safe = loader.getKwargs(field, base, logger)
@@ -554,7 +554,7 @@ class DESTileBuilder(OutputBuilder):
                 nobj = nstars + ngalaxies
                 # Save an object_type_list as a base_eval_variable, this can be used
                 # with MixedScene to specify whether to draw a galaxy or star.
-                obj_type_list = ['star']*nstars + ['gal']*ngalaxies
+                obj_type_list = ['star'] * nstars + ['gal'] * ngalaxies
                 base["object_type_list"] = obj_type_list
             else:
                 # If we're not using MixedNObjects, parse the nobjects as usual
@@ -687,15 +687,15 @@ class DESTileBuilder(OutputBuilder):
                 y_pos_list = []
                 L = 10000  # tile length in pixels
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
-                object_sep = L/nobj_per_row
-                uniform = galsim.UniformDeviate(base["image"]["random_seed"][1]) # choose 0, 1 or 2? 
+                object_sep = L / nobj_per_row
+                uniform = galsim.UniformDeviate(base["image"]["random_seed"][1])  # choose 0, 1 or 2?
                 for i in range(nobjects):
-                    offset_x = (uniform() - 0.5)*config.get("dither_scale", 0.5)
-                    offset_y = (uniform() - 0.5)*config.get("dither_scale", 0.5)
+                    offset_x = (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_y = (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     x_pos_list.append(
-                        (object_sep/2. + object_sep * (i % nobj_per_row) + offset_x))
+                        (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
-                        object_sep/2. + object_sep * (i // nobj_per_row) + offset_y)
+                        object_sep / 2. + object_sep * (i // nobj_per_row) + offset_y)
                 coadd_wcs = tile_setup["coadd_wcs"]
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
