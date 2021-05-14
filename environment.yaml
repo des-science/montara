@@ -32,5 +32,4 @@ dependencies:
   - joblib
   - lsstdesc-coord
   - pip
-  - pip:
-     - "git+https://github.com/esheldon/galsim_extra.git@master#egg=galsim_extra"
+  - galsim_extra
