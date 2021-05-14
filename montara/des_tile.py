@@ -690,8 +690,8 @@ class DESTileBuilder(OutputBuilder):
                 object_sep = L/nobj_per_row
                 uniform = galsim.UniformDeviate(base["image"]["random_seed"][1]) # choose 0, 1 or 2? 
                 for i in range(nobjects):
-                    offset_x = uniform() - base["image"]["dither"]
-                    offset_y = uniform() - base["image"]["dither"]
+                    offset_x = (uniform() - 0.5)*config.get("dither_scale", 0.5)
+                    offset_y = (uniform() - 0.5)*config.get("dither_scale", 0.5)
                     x_pos_list.append(
                         (object_sep/2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
