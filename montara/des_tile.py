@@ -689,8 +689,8 @@ class DESTileBuilder(OutputBuilder):
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
                 object_sep = L / nobj_per_row
                 #seed_ = galsim.config.ParseValue(base["image"], "random_seed", base, int)[0]
-                rng_ = galsim.config.GetRNG(base["image"], base)
-                uniform = galsim.UniformDeviate(rng_)
+                #rng_ = galsim.config.GetRNG(base["image"], base)
+                uniform = galsim.UniformDeviate(base['rng'])
                 for i in range(nobjects):
                     offset_x = (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     offset_y = (uniform() - 0.5) * config.get("dither_scale", 0.5)
