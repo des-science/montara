@@ -688,9 +688,10 @@ class DESTileBuilder(OutputBuilder):
                 L = 10000  # tile length in pixels
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
                 object_sep = L / nobj_per_row
-                #seed_ = galsim.config.ParseValue(base["image"], "random_seed", base, int)[0]
+                seed_ = galsim.config.ParseValue(base["image"], "random_seed", base, int)[0]
                 #rng_ = galsim.config.GetRNG(base["image"], base)
-                seed_ = 1234
+                print(seed_)
+                print(base["image"]["random_seed"])
                 uniform = galsim.UniformDeviate(seed_)
                 for i in range(nobjects):
                     offset_x = (uniform() - 0.5) * config.get("dither_scale", 0.5)
