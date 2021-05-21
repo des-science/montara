@@ -688,11 +688,10 @@ class DESTileBuilder(OutputBuilder):
                 L = 10000  # tile length in pixels
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
                 object_sep = L / nobj_per_row
-                print(first)
                 uniform = galsim.UniformDeviate(first)
                 for i in range(nobjects):
-                    offset_x = (uniform() - 0.5) * config.get("dither_scale", 0.5)
-                    offset_y = (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     x_pos_list.append(
                         (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
