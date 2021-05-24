@@ -692,7 +692,6 @@ class DESTileBuilder(OutputBuilder):
                 for i in range(nobjects):
                     offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
-                    print(offset_x, offset_y)
                     x_pos_list.append(
                         (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
@@ -705,8 +704,6 @@ class DESTileBuilder(OutputBuilder):
                            for p in world_pos_list]
                 dec_list = [(p.dec / galsim.degrees)
                             for p in world_pos_list]
-                print(ra_list)
-                print(dec_list)
 
                 # add positions to galsim
                 base["image"]["world_pos"] = {
