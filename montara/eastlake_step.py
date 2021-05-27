@@ -262,23 +262,18 @@ class MontaraGalSimRunner(Step):
                     # to a fits file
                     if config['output'].get('grid_objects', False):
                         _pos_data = config['output']['grid_objects_pos_data']
-                        nobjects = config['image']['nobjects']
-                        if isinstance(nobjects, int):
-                            truepos_filename = os.path.join(
-                                base_dir,
-                                "true_positions",
-                                "%s-truepositions.fits" % tilename,
-                            )
-                            safe_mkdir(os.path.dirname(truepos_filename))
-                            self.logger.error(
-                                "writing true position data to %s" % truepos_filename)
-                            fitsio.write(truepos_filename, _pos_data, clobber=True)
-                            stash.set_filepaths("truepositions_file",
-                                                truepos_filename,
-                                                tilename)
-                        else:
-                            self.logger.error("Currently saving true positions only works when nobjects is an int")
-                            self.logger.error("Can probably fix this if there's a need")
+                        truepos_filename = os.path.join(
+                            base_dir,
+                            "true_positions",
+                            "%s-truepositions.fits" % tilename,
+                        )
+                        safe_mkdir(os.path.dirname(truepos_filename))
+                        self.logger.error(
+                            "writing true position data to %s" % truepos_filename)
+                        fitsio.write(truepos_filename, _pos_data, clobber=True)
+                        stash.set_filepaths("truepositions_file",
+                                            truepos_filename,
+                                            tilename)
 
             elif mode == "coadd":
                 # set the coadd filenames
