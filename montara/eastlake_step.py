@@ -261,44 +261,9 @@ class MontaraGalSimRunner(Step):
                     # if doing gridded objects, save the true position data
                     # to a fits file
                     if config['output'].get('grid_objects', False):
+                        _pos_data = config['output']['grid_objects_pos_data']
                         nobjects = config['image']['nobjects']
                         if isinstance(nobjects, int):
-                            # compute this grid in X,Y for the coadd,
-                            # then convert to world position
-                            x_pos_list = []
-                            y_pos_list = []
-                            L = 10000  # tile length in pixels
-                            nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
-                            object_sep = L / nobj_per_row
-                            for i in range(nobjects):
-                                x_pos_list.append(
-                                    (object_sep / 2. + object_sep * (i % nobj_per_row)))
-                                y_pos_list.append(
-                                    object_sep / 2. + object_sep * (i // nobj_per_row))
-                            # get coadd wcs
-                            coadd_file = get_orig_coadd_file(
-                                desdata,
-                                desrun,
-                                tilename,
-                                bands[0],
-                            )
-                            coadd_wcs, coadd_origin = galsim.wcs.readFromFitsHeader(coadd_file)
-                            world_pos_list = [
-                                coadd_wcs.toWorld(galsim.PositionD(x, y))
-                                for (x, y) in zip(x_pos_list, y_pos_list)]
-                            ra_list = [(p.ra / galsim.degrees)
-                                       for p in world_pos_list]
-                            dec_list = [(p.dec / galsim.degrees)
-                                        for p in world_pos_list]
-
-                            # output a special file of the positions here
-                            # used for true detection later
-                            _pos_data = np.zeros(len(ra_list), dtype=[
-                                ('ra', 'f8'), ('dec', 'f8'), ('x', 'f8'), ('y', 'f8')])
-                            _pos_data['ra'] = np.array(ra_list, dtype=np.float64)
-                            _pos_data['dec'] = np.array(dec_list, dtype=np.float64)
-                            _pos_data['x'] = np.array(x_pos_list, dtype=np.float64)
-                            _pos_data['y'] = np.array(y_pos_list, dtype=np.float64)
                             truepos_filename = os.path.join(
                                 base_dir,
                                 "true_positions",
