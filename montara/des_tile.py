@@ -705,6 +705,16 @@ class DESTileBuilder(OutputBuilder):
                 dec_list = [(p.dec / galsim.degrees)
                             for p in world_pos_list]
 
+                # output a special file of the positions here
+                # used for true detection later
+                _pos_data = np.zeros(len(ra_list), dtype=[
+                        ('ra', 'f8'), ('dec', 'f8'), ('x', 'f8'), ('y', 'f8')])
+                _pos_data['ra'] = np.array(ra_list, dtype=np.float64)
+                _pos_data['dec'] = np.array(dec_list, dtype=np.float64)
+                _pos_data['x'] = np.array(x_pos_list, dtype=np.float64)
+                _pos_data['y'] = np.array(y_pos_list, dtype=np.float64)
+                config["grid_objects_pos_data"] = _pos_data
+
                 # add positions to galsim
                 base["image"]["world_pos"] = {
                     "type": "RADec",
