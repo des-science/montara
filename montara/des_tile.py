@@ -713,10 +713,7 @@ class DESTileBuilder(OutputBuilder):
                 _pos_data['dec'] = np.array(dec_list, dtype=np.float64)
                 _pos_data['x'] = np.array(x_pos_list, dtype=np.float64)
                 _pos_data['y'] = np.array(y_pos_list, dtype=np.float64)
-                base['grid_objects_pos_data'] = _pos_data
                 config['grid_objects_pos_data'] = _pos_data
-                print(base)
-                print(config)
 
 
                 # add positions to galsim
