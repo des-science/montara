@@ -261,8 +261,8 @@ class MontaraGalSimRunner(Step):
                     # if doing gridded objects, save the true position data
                     # to a fits file
                     if config['output'].get('grid_objects', False):
-                        print(stash)
-                        _pos_data = config['grid_objects_pos_data']
+                        print(output)
+                        _pos_data = output['grid_objects_pos_data']
                         truepos_filename = os.path.join(
                             base_dir,
                             "true_positions",
