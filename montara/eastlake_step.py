@@ -1,10 +1,11 @@
 from __future__ import print_function, absolute_import
 import os
 import pprint
+import glob
 
+import numpy as np
 import galsim
 import galsim.config
-import numpy as np
 import fitsio
 import eastlake
 
@@ -12,7 +13,6 @@ from .multiband_meds import MultibandMEDSBuilder
 from eastlake.step import Step
 from eastlake.utils import get_logger
 from .utils import safe_mkdir
-from eastlake.des_files import get_orig_coadd_file
 from eastlake.rejectlist import RejectList
 from .tile_setup import (
     get_source_list_files, get_tile_center,
@@ -27,8 +27,9 @@ class MontaraGalSimRunner(Step):
     running GalSim
     """
 
-    def __init__(self, config, base_dir, name="galsim", logger=None,
-                 verbosity=0, log_file=None):
+    def __init__(
+        self, config, base_dir, name="galsim", logger=None, verbosity=0, log_file=None
+    ):
         super().__init__(
             config, base_dir, name=name, logger=logger, verbosity=verbosity,
             log_file=log_file)
@@ -51,25 +52,39 @@ class MontaraGalSimRunner(Step):
             if "truth" not in output:
                 output["truth"] = {}
                 output["truth"]["colnames"] = {}
+            x_str = "image_pos.x"
+            y_str = "image_pos.y"
+            p_str = "image_pos"
+            if "stamp" in self.config:
+                if "offset" in self.config["stamp"]:
+                    x_str += " + (@stamp.offset).x"
+                    y_str += " + (@stamp.offset).y"
+                    p_str += " + (@stamp.offset)"
+
             add_to_truth = {
                 "id": "$tile_start_obj_num + obj_num - start_obj_num",
                 "flux": "$float((@current_obj).flux)",
                 "mag": "$-2.5*np.log10((@current_obj).flux) + mag_zp",
-                "x": "$image_pos.x",
-                "y": "$image_pos.y",
+                "x": "$%s" % x_str,
+                "y": "$%s" % y_str,
                 "ra": {
                     "type": "Eval",
                     "str": "'%.12e' % (ra_val)",
-                    "fra_val": "$(@image.wcs).toWorld(@image_pos).ra / galsim.degrees"},  # noqa
+                    "fra_val": "$(@image.wcs).toWorld(%s).ra / galsim.degrees" % p_str},
                 "dec": {
                     "type": "Eval",
                     "str": "'%.12e' % (dec_val)",
-                    "fdec_val": "$(@image.wcs).toWorld(@image_pos).dec / galsim.degrees"},  # noqa
+                    "fdec_val": "$(@image.wcs).toWorld(%s).dec / galsim.degrees" % p_str},
+                "x_coadd": {
+                    "type": "Eval",
+                    "str": "'%.12e' % (x_coadd_val)",
+                    "fx_coadd_val": "$coadd_wcs.toImage((@image.wcs).toWorld(%s)).x" % p_str},
+                "y_coadd": {
+                    "type": "Eval",
+                    "str": "'%.12e' % (y_coadd_val)",
+                    "fy_coadd_val": "$coadd_wcs.toImage((@image.wcs).toWorld(%s)).y" % p_str},
             }
             if "stamp" in self.config:
-                if "offset" in self.config["stamp"]:
-                    add_to_truth["x"] += " + (@stamp.offset).x"
-                    add_to_truth["y"] += " + (@stamp.offset).y"
                 if "objects" in self.config["stamp"]:
                     add_to_truth["obj_type_index"] = "@current_obj_type_index"
             if "catalog_sampler" in self.config["input"]:
@@ -261,8 +276,37 @@ class MontaraGalSimRunner(Step):
                     # if doing gridded objects, save the true position data
                     # to a fits file
                     if config['output'].get('grid_objects', False):
-                        print(self.config)
-                        _pos_data = self.config['output']['grid_objects_pos_data']
+                        # build up the unique truth entries via looking at the entries
+                        # for each CCD
+                        fnames = glob.glob(
+                            os.path.join(base_dir, desrun, tilename, "**/truth_*.dat"),
+                            recursive=True,
+                        )
+                        data = []
+                        for fname in fnames:
+                            if os.path.getsize(fname):
+                                _d = np.genfromtxt(fname, names=True)
+                                data.append(_d)
+                                print(fname, _d)
+                        if len(data) == 0:
+                            raise RuntimeError(
+                                "No objects drawn for tile %s when using a grid!" % tilename
+                            )
+
+                        data = np.stack(data)
+                        uids, uinds = np.unique(data["id"], return_index=True)
+                        n_pos_data = len(uids)
+                        _pos_data = np.zeros(n_pos_data, dtype=[
+                                ('ra', 'f8'), ('dec', 'f8'),
+                                ('x', 'f8'), ('y', 'f8'),
+                                ('id', 'i8')])
+                        _pos_data['id'] = data['id'][uinds]
+                        _pos_data['ra'] = data['ra'][uinds]
+                        _pos_data['dec'] = data['dec'][uinds]
+                        _pos_data['x'] = data['x_coadd'][uinds]
+                        _pos_data['y'] = data['y_coadd'][uinds]
+
+                        # we'll stash this for later
                         truepos_filename = os.path.join(
                             base_dir,
                             "true_positions",

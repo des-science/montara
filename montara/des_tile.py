@@ -182,7 +182,7 @@ class DESTileBuilder(OutputBuilder):
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
                 "file_path", "desdata", "desrun", "object_type_list",
-                "is_rejectlisted"
+                "is_rejectlisted", "coadd_wcs",
             ]
 
         # Now, if we haven't already, we need to read in some things which
@@ -301,7 +301,8 @@ class DESTileBuilder(OutputBuilder):
         if mode == "single-epoch":
             base["orig_image_path"] = tile_setup["image_files"][file_num]
             base["psfex_path"] = tile_setup["psfex_files"][file_num]
-            base["piff_path"] = tile_setup["piff_files"][file_num]
+            if "piff_files" in tile_setup:
+                base["piff_path"] = tile_setup["piff_files"][file_num]
             base["eval_variables"]["sband"] = tile_setup["band_list"][file_num]
             base["eval_variables"]["fmag_zp"] \
                 = tile_setup["mag_zp_list"][file_num]
@@ -327,23 +328,16 @@ class DESTileBuilder(OutputBuilder):
         base["tilename"] = tilename
         base["band_num"] = bands.index(band)
         base["band"] = band
+        base["coadd_wcs"] = tile_setup["coadd_wcs"]
 
-        base["eval_variables"]["fra_min_deg"] \
-            = tile_setup["tile_ra_ranges_deg"][0]
-        base["eval_variables"]["fra_max_deg"] \
-            = tile_setup["tile_ra_ranges_deg"][1]
-        base["eval_variables"]["fdec_min_deg"] \
-            = tile_setup["tile_dec_ranges_deg"][0]
-        base["eval_variables"]["fdec_max_deg"] \
-            = tile_setup["tile_dec_ranges_deg"][1]
-        base["eval_variables"]["fcoadd_ra_min_deg"] \
-            = tile_setup["coadd_ra_ranges_deg"][0]
-        base["eval_variables"]["fcoadd_ra_max_deg"] \
-            = tile_setup["coadd_ra_ranges_deg"][1]
-        base["eval_variables"]["fcoadd_dec_min_deg"] \
-            = tile_setup["coadd_dec_ranges_deg"][0]
-        base["eval_variables"]["fcoadd_dec_max_deg"] \
-            = tile_setup["coadd_dec_ranges_deg"][1]
+        base["eval_variables"]["fra_min_deg"] = tile_setup["tile_ra_ranges_deg"][0]
+        base["eval_variables"]["fra_max_deg"] = tile_setup["tile_ra_ranges_deg"][1]
+        base["eval_variables"]["fdec_min_deg"] = tile_setup["tile_dec_ranges_deg"][0]
+        base["eval_variables"]["fdec_max_deg"] = tile_setup["tile_dec_ranges_deg"][1]
+        base["eval_variables"]["fcoadd_ra_min_deg"] = tile_setup["coadd_ra_ranges_deg"][0]
+        base["eval_variables"]["fcoadd_ra_max_deg"] = tile_setup["coadd_ra_ranges_deg"][1]
+        base["eval_variables"]["fcoadd_dec_min_deg"] = tile_setup["coadd_dec_ranges_deg"][0]
+        base["eval_variables"]["fcoadd_dec_max_deg"] = tile_setup["coadd_dec_ranges_deg"][1]
         logger.info(
             "ra min/max for tile %s: %f,%f degrees" % (
                 tilename, base["eval_variables"]["fra_min_deg"],
@@ -679,7 +673,10 @@ class DESTileBuilder(OutputBuilder):
             if "world_pos" not in base["image"]:
                 base["image"]["world_pos"] = {}
             if not base["image"]["world_pos"].get("_setup_as_list", False):
-                logger.info("generating gridded objects positions")
+                logger.info(
+                    "generating gridded objects positions with dither %s",
+                    config.get("dither_scale", 0.5),
+                )
                 # in this case we want to use a grid of objects positions.
                 # compute this grid in X,Y for the coadd,
                 # then convert to world position
@@ -704,17 +701,6 @@ class DESTileBuilder(OutputBuilder):
                            for p in world_pos_list]
                 dec_list = [(p.dec / galsim.degrees)
                             for p in world_pos_list]
-
-                # output a special file of the positions here
-                # used for true detection later
-                _pos_data = np.zeros(len(ra_list), dtype=[
-                        ('ra', 'f8'), ('dec', 'f8'), ('x', 'f8'), ('y', 'f8')])
-                _pos_data['ra'] = np.array(ra_list, dtype=np.float64)
-                _pos_data['dec'] = np.array(dec_list, dtype=np.float64)
-                _pos_data['x'] = np.array(x_pos_list, dtype=np.float64)
-                _pos_data['y'] = np.array(y_pos_list, dtype=np.float64)
-                config['grid_objects_pos_data'] = _pos_data
-
 
                 # add positions to galsim
                 base["image"]["world_pos"] = {
@@ -749,7 +735,7 @@ class DESTileBuilder(OutputBuilder):
         logger.debug("tile_start_obj_num: %d", base["tile_start_obj_num"])
 
         logger.debug(
-            'file_num, band = %d, %d, %d',
+            'file_num, band = %s, %s',
             file_num, base["eval_variables"]["sband"])
 
         # This sets up the RNG seeds.
@@ -823,7 +809,7 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'desdata', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file', 'dither_scale', 'grid_objects_pos_data']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 

@@ -367,10 +367,11 @@ class Tile(dict):
             psfex_file_list += psfex_files
 
             # get piff stuff here
-            piff_files = [
-                get_piff_path(f)
-                for f in image_files]
-            piff_file_list += piff_files
+            if "PIFF_DATA_DIR" in os.environ and "PIFF_RUN" in os.environ:
+                piff_files = [
+                    get_piff_path(f)
+                    for f in image_files]
+                piff_file_list += piff_files
 
             # fill out indexing info for bands, tile_nums and tilenames
             band_list += band * len(image_files)
@@ -447,7 +448,8 @@ class Tile(dict):
         tile_data["image_files"] = im_file_list
         tile_data["mag_zp_list"] = mag_zp_list
         tile_data["psfex_files"] = psfex_file_list
-        tile_data['piff_files'] = piff_file_list
+        if len(piff_file_list) > 0:
+            tile_data['piff_files'] = piff_file_list
         tile_data["coadd_ra_ranges_deg"] = coadd_ra_ranges_deg
         tile_data["coadd_dec_ranges_deg"] = coadd_dec_ranges_deg
         tile_data["tile_ra_ranges_deg"] = tile_ra_ranges_deg
