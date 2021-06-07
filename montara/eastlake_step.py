@@ -292,7 +292,7 @@ class MontaraGalSimRunner(Step):
                             raise RuntimeError(
                                 "No objects drawn for tile %s when using a grid!" % tilename
                             )
-                        print('data shape', np.shape(data))
+                        print('data ', data)
                         data = np.stack(data)
                         uids, uinds = np.unique(data["id"], return_index=True)
                         n_pos_data = len(uids)
