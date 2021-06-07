@@ -285,15 +285,15 @@ class MontaraGalSimRunner(Step):
                         data = []
                         for fname in fnames:
                             if os.path.getsize(fname):
-                                _d = np.genfromtxt(fname, names=True)
+                                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
                                 data.append(_d)
-                                print(fname, _d)
+
                         if len(data) == 0:
                             raise RuntimeError(
                                 "No objects drawn for tile %s when using a grid!" % tilename
                             )
 
-                        data = np.stack(data)
+                        data = np.concatenate(data)
                         uids, uinds = np.unique(data["id"], return_index=True)
                         n_pos_data = len(uids)
                         _pos_data = np.zeros(n_pos_data, dtype=[
