@@ -2,6 +2,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - autoconf
+  - automake
+  - blas-devel=*=*openblas
+  - compilers
   - python=3.8
   - numpy
   - astropy
@@ -28,5 +32,4 @@ dependencies:
   - joblib
   - lsstdesc-coord
   - pip
-  - pip:
-     - "git+https://github.com/esheldon/galsim_extra.git@master#egg=galsim_extra"
+  - galsim_extra

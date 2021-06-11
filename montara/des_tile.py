@@ -110,15 +110,15 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             skysigma = orig_im_fits[1].header["SKYSIGMA"]
             var = skysigma**2
         elif params["noise_mode"] == "inverse_median_weight":
-            var = 1./np.median(orig_im_fits[3].data[orig_im_fits[2].data == 0])
+            var = 1. / np.median(orig_im_fits[3].data[orig_im_fits[2].data == 0])
         elif params["noise_mode"] == "median_inverse_weight":
             var = np.median(
-                1./(orig_im_fits[3].data[orig_im_fits[2].data == 0]))
+                1. / (orig_im_fits[3].data[orig_im_fits[2].data == 0]))
         elif params["noise_mode"] == "from_weight":
             inv_var = orig_im_fits[3].data
             unmasked = orig_im_fits[2].data == 0
             var = np.zeros_like(inv_var)
-            var[unmasked] = 1./inv_var[unmasked]
+            var[unmasked] = 1. / inv_var[unmasked]
             # weight map values in masked areas may be crazy
             # so assign the median here
             med = np.median(var[unmasked])
@@ -182,7 +182,7 @@ class DESTileBuilder(OutputBuilder):
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
                 "file_path", "desdata", "desrun", "object_type_list",
-                "is_rejectlisted"
+                "is_rejectlisted", "coadd_wcs",
             ]
 
         # Now, if we haven't already, we need to read in some things which
@@ -301,7 +301,8 @@ class DESTileBuilder(OutputBuilder):
         if mode == "single-epoch":
             base["orig_image_path"] = tile_setup["image_files"][file_num]
             base["psfex_path"] = tile_setup["psfex_files"][file_num]
-            base["piff_path"] = tile_setup["piff_files"][file_num]
+            if "piff_files" in tile_setup:
+                base["piff_path"] = tile_setup["piff_files"][file_num]
             base["eval_variables"]["sband"] = tile_setup["band_list"][file_num]
             base["eval_variables"]["fmag_zp"] \
                 = tile_setup["mag_zp_list"][file_num]
@@ -327,23 +328,16 @@ class DESTileBuilder(OutputBuilder):
         base["tilename"] = tilename
         base["band_num"] = bands.index(band)
         base["band"] = band
+        base["coadd_wcs"] = tile_setup["coadd_wcs"]
 
-        base["eval_variables"]["fra_min_deg"] \
-            = tile_setup["tile_ra_ranges_deg"][0]
-        base["eval_variables"]["fra_max_deg"] \
-            = tile_setup["tile_ra_ranges_deg"][1]
-        base["eval_variables"]["fdec_min_deg"] \
-            = tile_setup["tile_dec_ranges_deg"][0]
-        base["eval_variables"]["fdec_max_deg"] \
-            = tile_setup["tile_dec_ranges_deg"][1]
-        base["eval_variables"]["fcoadd_ra_min_deg"] \
-            = tile_setup["coadd_ra_ranges_deg"][0]
-        base["eval_variables"]["fcoadd_ra_max_deg"] \
-            = tile_setup["coadd_ra_ranges_deg"][1]
-        base["eval_variables"]["fcoadd_dec_min_deg"] \
-            = tile_setup["coadd_dec_ranges_deg"][0]
-        base["eval_variables"]["fcoadd_dec_max_deg"] \
-            = tile_setup["coadd_dec_ranges_deg"][1]
+        base["eval_variables"]["fra_min_deg"] = tile_setup["tile_ra_ranges_deg"][0]
+        base["eval_variables"]["fra_max_deg"] = tile_setup["tile_ra_ranges_deg"][1]
+        base["eval_variables"]["fdec_min_deg"] = tile_setup["tile_dec_ranges_deg"][0]
+        base["eval_variables"]["fdec_max_deg"] = tile_setup["tile_dec_ranges_deg"][1]
+        base["eval_variables"]["fcoadd_ra_min_deg"] = tile_setup["coadd_ra_ranges_deg"][0]
+        base["eval_variables"]["fcoadd_ra_max_deg"] = tile_setup["coadd_ra_ranges_deg"][1]
+        base["eval_variables"]["fcoadd_dec_min_deg"] = tile_setup["coadd_dec_ranges_deg"][0]
+        base["eval_variables"]["fcoadd_dec_max_deg"] = tile_setup["coadd_dec_ranges_deg"][1]
         logger.info(
             "ra min/max for tile %s: %f,%f degrees" % (
                 tilename, base["eval_variables"]["fra_min_deg"],
@@ -535,7 +529,7 @@ class DESTileBuilder(OutputBuilder):
                     field = base['input'][key]
                     loader = galsim.config.input.valid_input_types[key]
                     if (key in base['_input_objs'] and
-                            base['_input_objs']['desstar'+'_safe'][0]):
+                            base['_input_objs']['desstar' + '_safe'][0]):
                         star_input = base["_input_objs"][key][0]
                     else:
                         kwargs, safe = loader.getKwargs(field, base, logger)
@@ -554,7 +548,7 @@ class DESTileBuilder(OutputBuilder):
                 nobj = nstars + ngalaxies
                 # Save an object_type_list as a base_eval_variable, this can be used
                 # with MixedScene to specify whether to draw a galaxy or star.
-                obj_type_list = ['star']*nstars + ['gal']*ngalaxies
+                obj_type_list = ['star'] * nstars + ['gal'] * ngalaxies
                 base["object_type_list"] = obj_type_list
             else:
                 # If we're not using MixedNObjects, parse the nobjects as usual
@@ -679,7 +673,10 @@ class DESTileBuilder(OutputBuilder):
             if "world_pos" not in base["image"]:
                 base["image"]["world_pos"] = {}
             if not base["image"]["world_pos"].get("_setup_as_list", False):
-                logger.info("generating gridded objects positions")
+                logger.info(
+                    "generating gridded objects positions with dither %s",
+                    config.get("dither_scale", 0.5),
+                )
                 # in this case we want to use a grid of objects positions.
                 # compute this grid in X,Y for the coadd,
                 # then convert to world position
@@ -687,12 +684,15 @@ class DESTileBuilder(OutputBuilder):
                 y_pos_list = []
                 L = 10000  # tile length in pixels
                 nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
-                object_sep = L/nobj_per_row
+                object_sep = L / nobj_per_row
+                uniform = galsim.UniformDeviate(first)
                 for i in range(nobjects):
+                    offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     x_pos_list.append(
-                        (object_sep/2. + object_sep * (i % nobj_per_row)))
+                        (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x))
                     y_pos_list.append(
-                        object_sep/2. + object_sep * (i // nobj_per_row))
+                        object_sep / 2. + object_sep * (i // nobj_per_row) + offset_y)
                 coadd_wcs = tile_setup["coadd_wcs"]
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
@@ -735,7 +735,7 @@ class DESTileBuilder(OutputBuilder):
         logger.debug("tile_start_obj_num: %d", base["tile_start_obj_num"])
 
         logger.debug(
-            'file_num, band = %d, %d, %d',
+            'file_num, band = %s, %s',
             file_num, base["eval_variables"]["sband"])
 
         # This sets up the RNG seeds.
@@ -809,7 +809,7 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'desdata', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
