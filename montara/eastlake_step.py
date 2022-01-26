@@ -196,16 +196,18 @@ class MontaraGalSimRunner(Step):
                     # truth
                     with stash.update_output_pizza_cutter_yaml(tilename, band) as pyml:
                         for i in range(len(pyml["src_info"])):
-                            if pyml["src_info"][i]["image_path"].endswith(".fz"):
-                                fname = pyml["src_info"][i]["image_path"][:-3]
-                                pyml["src_info"][i]["image_path"] = fname
-                                pyml["src_info"][i]["image_ext"] = 0
+                            fname = pyml["src_info"][i]["image_path"]
+                            if fname.endswith(".fz"):
+                                fname = fname[:-3]
 
-                                pyml["src_info"][i]["bmask_path"] = fname
-                                pyml["src_info"][i]["bmask_ext"] = 1
+                            pyml["src_info"][i]["image_path"] = fname
+                            pyml["src_info"][i]["image_ext"] = 0
 
-                                pyml["src_info"][i]["weight_path"] = fname
-                                pyml["src_info"][i]["weight_ext"] = 2
+                            pyml["src_info"][i]["bmask_path"] = fname
+                            pyml["src_info"][i]["bmask_ext"] = 1
+
+                            pyml["src_info"][i]["weight_path"] = fname
+                            pyml["src_info"][i]["weight_ext"] = 2
 
                         truth_files = [
                             get_truth_from_image_file(src["image_path"], tilename)
