@@ -6,6 +6,5 @@ from . import utils  # noqa
 from . import z_slice_shear  # noqa
 from . import mixed_scene_postop  # noqa
 from . import badpixfromfits  # noqa
-from . import multiband_meds  # noqa
 from . import eastlake_step  # noqa
 from ._version import __version__  # noqa

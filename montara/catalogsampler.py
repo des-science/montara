@@ -133,7 +133,7 @@ def CatalogValue(config, base, value_type):
         return float(row_data[colnames.index(col)])
     except ValueError as e:
         print("%s not in colnames" % col)
-        raise(e)
+        raise e
 
 
 galsim.config.RegisterInputType('catalog_sampler', CatalogSamplerLoader(CatalogSampler))

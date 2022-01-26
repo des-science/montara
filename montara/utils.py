@@ -3,6 +3,7 @@ from __future__ import print_function
 import errno
 import os
 import numpy as np
+import galsim
 
 
 def safe_mkdir(d):
@@ -10,7 +11,7 @@ def safe_mkdir(d):
         os.makedirs(d)
     except OSError as e:
         if e.errno != errno.EEXIST:
-            raise(e)
+            raise e
 
 
 def add_field(a, descr, arrays):
@@ -45,3 +46,39 @@ def add_field(a, descr, arrays):
     for d, c in zip(descr, arrays):
         b[d[0]] = c
     return b
+
+
+def get_truth_from_image_file(image_file, tilename):
+    """Get the truth catalog path from the image path and tilename.
+    Parameters
+    ----------
+    image_file : str
+        The path to the image file.
+    tilename : str
+        The name of the coadd tile.
+    Returns
+    -------
+    truth_path : str
+        The path to the truth file.
+    """
+    return os.path.join(
+        os.path.dirname(image_file),
+        "truth_%s_%s.dat" % (tilename, os.path.basename(image_file)))
+
+
+def get_tile_center(coadd_file):
+    """Get the center of the coadd tile from the coadd WCS header values.
+
+    Parameters
+    ----------
+    coadd_file : str
+        The path the coadd file to read.
+
+    Returns
+    -------
+    center : tuple of floats
+        A tuple of floats with the values of ('CRVAL1', 'CRVAL2') from the
+        coadd image header.
+    """
+    coadd_header = galsim.fits.FitsHeader(coadd_file)
+    return (str(coadd_header["CRVAL1"]), str(coadd_header["CRVAL2"]))
