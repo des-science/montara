@@ -83,7 +83,7 @@ class MontaraGalSimRunner(Step):
             if "stamp" in self.config:
                 if "objects" in self.config["stamp"]:
                     add_to_truth["obj_type_index"] = "@current_obj_type_index"
-            if "catalog_sampler" in self.config["input"]:
+            if "catalog_sampler" in self.config.get("input", {}):
                 add_to_truth["gal_catalog_row"] = {
                     "type": "Eval",
                     "str": "-1 if @current_obj_type=='star' else int(gal_catalog_row)",  # noqa
@@ -91,7 +91,7 @@ class MontaraGalSimRunner(Step):
                         "type": "catalog_sampler_value",
                         "col": "catalog_row"}
                 }
-            if "desstar" in self.config["input"]:
+            if "desstar" in self.config.get("input", {}):
                 add_to_truth["star_catalog_row"] = {
                     "type": "Eval",
                     "str": "-1 if @current_obj_type=='gal' else int(star_catalog_row)",  # noqa
