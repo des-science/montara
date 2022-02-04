@@ -217,7 +217,7 @@ class DESTileBuilder(OutputBuilder):
 
             # The Tile class from .tile_setup collects a load
             # of juicy information for each tile
-            tile_info = Tile.from_tilename(tilename, bands=bands)
+            tile_info = Tile.from_tilename(tilename, bands=bands, desrun=desrun)
 
             # Here we just need to set a few more things
             # like the name of the output files
