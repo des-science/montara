@@ -95,7 +95,7 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             params["bkg_filename"], hdu=params.get("bkg_hdu", 1))
         return bkg_image
 
-    def getNoiseVariance(self, config, base):
+    def getNoiseVariance(self, config, base, full=None):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
         orig_im_fits = pyfits.open(params["orig_image_path"])
