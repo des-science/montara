@@ -754,7 +754,7 @@ class DESTileBuilder(OutputBuilder):
                     "invalid mode, should be either 'single-epoch' or 'coadd'")
         return nfiles
 
-    def getNFiles(self, config, base):
+    def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 
         As far as the config processing is concerned, this is the number of
