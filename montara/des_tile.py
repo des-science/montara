@@ -702,6 +702,22 @@ class DESTileBuilder(OutputBuilder):
                 dec_list = [(p.dec / galsim.degrees)
                             for p in world_pos_list]
 
+                # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
+                sheared_ra_list = []
+                sheared_dec_list = []
+                print('starting shearing the full scene code.')
+                for ra_obj, dec_obj in zip(ra_list, dec_list):
+                    u,v = tile_setup["tile_center"].project_rad(ra_obj, dec_obj, projection='gnomonic')
+                    pos = galsim.PositionD(x=u, y=v)
+                    print(u, v)
+                    # shearing the position. 
+                    sheared_uv = pos.shear(galsim.Shear(g1=0.02, g2=0))
+                    # convert up, vp to ra, dec
+                    rap, decp = tile_setup["tile_center"].deproject_rad(sheared_uv[0], sheared_uv[1], projection='gnomonic')
+                    sheared_ra_list.append(rap)
+                    sheared_dec_list.append(decp)
+                # Shearing the full scene done. 
+
                 # add positions to galsim
                 base["image"]["world_pos"] = {
                     "type": "RADec",
@@ -709,7 +725,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': ra_list,
+                            'items': sheared_ra_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -718,7 +734,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': dec_list,
+                            'items': sheared_dec_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
