@@ -687,15 +687,15 @@ class DESTileBuilder(OutputBuilder):
                 object_sep = L / nobj_per_row
                 uniform = galsim.UniformDeviate(first)
                 for i in range(nobjects):
-                    offset_x = 0 # 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
-                    offset_y = 0 # 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                    offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
                     x_pos_list.append(
                         (object_sep / 2. + object_sep * (i // nobj_per_row) + offset_x))
                     y_pos_list.append(
                         object_sep / 2. + object_sep * (i // nobj_per_row) + offset_y)
                 coadd_wcs = tile_setup["coadd_wcs"]
                 world_pos_list = [
-                    coadd_wcs.toWorld(galsim.PositionD(x, y))
+                    coadd_wcs.toWorld(galsim.PositionD(x, y), units=galsim.degrees)
                     for (x, y) in zip(x_pos_list, y_pos_list)]
                 ra_list = [(p.ra / galsim.degrees)
                            for p in world_pos_list]
