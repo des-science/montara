@@ -697,19 +697,16 @@ class DESTileBuilder(OutputBuilder):
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
                     for (x, y) in zip(x_pos_list, y_pos_list)]
-                print(world_pos_list[0].ra, world_pos_list[0].dec)
-                print(world_pos_list[0].ra/galsim.degrees, world_pos_list[0].dec/galsim.degrees)
-                ra_list = [(p.ra / galsim.degrees)
-                           for p in world_pos_list]
-                dec_list = [(p.dec / galsim.degrees)
-                            for p in world_pos_list]
+                ra_list = [(p.ra)
+                           for p in world_pos_list] # units in radians
+                dec_list = [(p.dec)
+                            for p in world_pos_list] # units in radians
 
                 # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
                 shear = galsim.Shear(g1=0.00, g2=0.00)
                 S = shear.getMatrix()
                 print('starting shearing the full scene.')
-                u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic')
-                print(tile_setup["tile_center"])
+                u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic') # tile center units in radians
                 # shearing the position. 
                 pos = np.vstack((u, v))
                 sheared_uv = np.dot(S, pos)
