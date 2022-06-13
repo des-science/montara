@@ -723,7 +723,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': sheared_ra_list,
+                            'items': [-0.51 for ii in range(nobjects)],
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -732,7 +732,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': sheared_dec_list,
+                            'items': [0.2 for ii in range(nobjects)],
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
