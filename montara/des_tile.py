@@ -712,7 +712,10 @@ class DESTileBuilder(OutputBuilder):
                 sheared_uv = np.dot(S, pos)
                 print('uv', sheared_uv[0,:], sheared_uv[1,:])
                 # convert sheared u,v back to sheared ra,dec
-                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:][0], sheared_uv[1,:][0], projection='gnomonic')
+                for up,vp in zip(sheared_uv[0,:], sheared_uv[1,:]):
+                    print(up, vp)
+                    rap, decp = tile_setup["tile_center"].deproject_rad(up, vp, projection='gnomonic')
+                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
                 print(sheared_ra, sheared_dec)
                 sheared_ra_list = list(sheared_ra)
                 sheared_dec_list = list(sheared_dec)
