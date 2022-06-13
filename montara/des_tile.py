@@ -697,6 +697,8 @@ class DESTileBuilder(OutputBuilder):
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
                     for (x, y) in zip(x_pos_list, y_pos_list)]
+                print(world_pos_list[0].ra, world_pos_list[0].dec)
+                print(world_pos_list[0].ra/galsim.degrees, world_pos_list[0].dec/galsim.degrees)
                 ra_list = [(p.ra / galsim.degrees)
                            for p in world_pos_list]
                 dec_list = [(p.dec / galsim.degrees)
