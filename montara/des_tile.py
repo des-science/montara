@@ -710,13 +710,15 @@ class DESTileBuilder(OutputBuilder):
                 # shearing the position. 
                 pos = np.vstack((u, v))
                 sheared_uv = np.dot(S, pos)
+                print('uv', sheared_uv[0,:], sheared_uv[1,:])
                 # convert sheared u,v back to sheared ra,dec
                 sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
                 sheared_ra_list = list(sheared_ra)
                 sheared_dec_list = list(sheared_dec)
-                print(dec_list-sheared_dec)
-                print(sheared_ra_list, sheared_dec_list)
+                print('ra diff', ra_list-sheared_ra)
+                print('dec diff', dec_list-sheared_dec)
                 # Shearing the full scene done. 
+                exit()
 
                 # add positions to galsim
                 base["image"]["world_pos"] = {
