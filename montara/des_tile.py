@@ -714,6 +714,7 @@ class DESTileBuilder(OutputBuilder):
                 # convert sheared u,v back to sheared ra,dec
                 print(sheared_uv[0,:][-1])
                 sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:][:-1], sheared_uv[1,:][:-1], projection='gnomonic')
+                print(len(sheared_ra))
                 sheared_ra_list = list(sheared_ra)
                 sheared_dec_list = list(sheared_dec)
                 print('ra diff', ra_list-sheared_ra)
