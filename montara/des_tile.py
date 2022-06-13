@@ -707,13 +707,13 @@ class DESTileBuilder(OutputBuilder):
                 S = shear.getMatrix()
                 print('starting shearing the full scene.')
                 u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic')
-                print(u, v)
                 # shearing the position. 
                 pos = np.vstack((u, v))
                 sheared_uv = np.dot(S, pos)
                 # convert sheared u,v to sheared ra,dec
                 sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
                 # Shearing the full scene done. 
+                print(type(ra_list), len(ra_list), type(sheared_ra), len(sheared_ra))
 
                 # add positions to galsim
                 base["image"]["world_pos"] = {
@@ -722,7 +722,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': list(sheared_ra),
+                            'items': sheared_ra,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -731,7 +731,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': list(sheared_dec),
+                            'items': sheared_dec,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
