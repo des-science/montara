@@ -707,6 +707,7 @@ class DESTileBuilder(OutputBuilder):
                 S = shear.getMatrix()
                 print('starting shearing the full scene.')
                 u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic')
+                print(tile_setup["tile_center"])
                 # shearing the position. 
                 pos = np.vstack((u, v))
                 sheared_uv = np.dot(S, pos)
