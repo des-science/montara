@@ -702,18 +702,20 @@ class DESTileBuilder(OutputBuilder):
                 dec_list = [(p.dec / galsim.degrees)
                             for p in world_pos_list]
 
-                # # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
-                # shear = galsim.Shear(g1=0.02, g2=0.00)
-                # S = shear.getMatrix()
-                # print('starting shearing the full scene.')
-                # u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic')
-                # print(u, v)
-                # # shearing the position. 
-                # pos = np.vstack((u, v))
-                # sheared_uv = np.dot(S, pos)
-                # # convert sheared u,v to sheared ra,dec
-                # sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
-                # # Shearing the full scene done. 
+                # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
+                shear = galsim.Shear(g1=0.00, g2=0.00)
+                S = shear.getMatrix()
+                print('starting shearing the full scene.')
+                u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic')
+                print(u, v)
+                # shearing the position. 
+                pos = np.vstack((u, v))
+                sheared_uv = np.dot(S, pos)
+                # convert sheared u,v to sheared ra,dec
+                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
+                # Shearing the full scene done. 
+                print(sheared_ra, sheared_dec)
+                print(ra_list - sheared_ra)
 
                 # add positions to galsim
                 base["image"]["world_pos"] = {
@@ -722,7 +724,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': ra_list,
+                            'items': sheared_ra,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -731,7 +733,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': dec_list,
+                            'items': sheared_dec,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
