@@ -725,7 +725,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': ,
+                            'items': ra_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -734,7 +734,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': ,
+                            'items': dec_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
