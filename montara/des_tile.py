@@ -715,8 +715,9 @@ class DESTileBuilder(OutputBuilder):
                 sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:].astype(float), sheared_uv[1,:].astype(float), projection='gnomonic')
                 sheared_ra_list = list(sheared_ra)
                 sheared_dec_list = list(sheared_dec)
-                print('ra diff', ra_list-sheared_ra)
-                print('dec diff', dec_list-sheared_dec)
+                print(ra_list[0], sheared_ra[0], dec_list[0], sheared_dec[0])
+                print('ra diff', ra_list, sheared_ra)
+                print('dec diff', dec_list, sheared_dec)
                 # Shearing the full scene done. 
                 exit()
 
