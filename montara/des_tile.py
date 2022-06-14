@@ -719,8 +719,6 @@ class DESTileBuilder(OutputBuilder):
                 dec_deg_list = [p / galsim.degrees for p in dec_list] # units in degrees
                 sheared_ra_deg = np.degrees(sheared_ra)
                 sheared_dec_deg = np.degrees(sheared_dec)
-                print('ra diff', ra_deg_list-sheared_ra_deg)
-                print('dec diff', dec_deg_list-sheared_dec_deg)
 
                 sheared_ra_list = list(sheared_ra_deg)
                 sheared_dec_list = list(sheared_dec_deg)
