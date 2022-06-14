@@ -703,8 +703,8 @@ class DESTileBuilder(OutputBuilder):
                             for p in world_pos_list] # units in radians
 
                 # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
-                if base["stamp"]["shear_scene"]["type"] == 'G1G2':
-                    shear = galsim.Shear(g1=float(base["stamp"]["shear_scene"]["g1"]), g2=float(base["stamp"]["shear_scene"]["g2"]))
+                if config["shear_scene"]["type"] == 'G1G2':
+                    shear = galsim.Shear(g1=float(config["shear_scene"]["g1"]), g2=float(config["shear_scene"]["g2"]))
                     S = shear.getMatrix()
                     print('starting shearing the full scene.')
                     u,v = tile_setup["tile_center"].project_rad(ra_grid_list, dec_grid_list, projection='gnomonic') # tile center units in radians
