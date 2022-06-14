@@ -713,14 +713,17 @@ class DESTileBuilder(OutputBuilder):
                 print('tile center', tile_setup["tile_center"])
                 # convert sheared u,v back to sheared ra,dec
                 sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:].astype(float), sheared_uv[1,:].astype(float), projection='gnomonic')
-                sheared_ra_list = list(sheared_ra)
-                sheared_dec_list = list(sheared_dec)
-                print(ra_list[0], sheared_ra[0], dec_list[0], sheared_dec[0])
-                print('ra diff', ra_list, sheared_ra)
-                print('dec diff', dec_list, sheared_dec)
                 # Shearing the full scene done. 
-                exit()
 
+                ra_deg_list = [p / galsim.degrees for p in ra_list] # units in degrees
+                dec_deg_list = [p / galsim.degrees for p in dec_list] # units in degrees
+                sheared_ra_deg = np.degrees(sheared_ra)
+                sheared_dec_deg = np.degrees(sheared_dec)
+                print('ra diff', ra_deg_list-sheared_ra_deg)
+                print('dec diff', dec_deg_list-sheared_dec_deg)
+
+                sheared_ra_list = list(sheared_ra_deg)
+                sheared_dec_list = list(sheared_dec_deg)
                 # add positions to galsim
                 base["image"]["world_pos"] = {
                     "type": "RADec",
@@ -728,7 +731,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': ra_list,
+                            'items': sheared_ra_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -737,7 +740,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': dec_list,
+                            'items': sheared_dec_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
