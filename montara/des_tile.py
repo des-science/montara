@@ -710,10 +710,11 @@ class DESTileBuilder(OutputBuilder):
                 # shearing the position. 
                 pos = np.vstack((u, v))
                 sheared_uv = np.dot(S, pos)
-                print('uv', sheared_uv[0,:])
+                print('tile center', tile_setup["tile_center"])
+                np.save('~/DES/des-y6-analysis/sheared_u.npy', sheared_uv[0,:])
+                np.save('~/DES/des-y6-analysis/sheared_v.npy', sheared_uv[1,:])
                 # convert sheared u,v back to sheared ra,dec
-                print(sheared_uv[0,:][-1])
-                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:][:-1], sheared_uv[1,:][:-1], projection='gnomonic')
+                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:], sheared_uv[1,:], projection='gnomonic')
                 print(len(sheared_ra))
                 sheared_ra_list = list(sheared_ra)
                 sheared_dec_list = list(sheared_dec)
