@@ -831,7 +831,7 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'desdata', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file', 'dither_scale', 'coadd_wcs']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'shear_scene']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
