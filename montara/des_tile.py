@@ -697,31 +697,33 @@ class DESTileBuilder(OutputBuilder):
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
                     for (x, y) in zip(x_pos_list, y_pos_list)]
-                ra_list = [(p.ra)
+                ra_grid_list = [(p.ra)
                            for p in world_pos_list] # units in radians
-                dec_list = [(p.dec)
+                dec_grid_list = [(p.dec)
                             for p in world_pos_list] # units in radians
 
                 # Use the tile center to convert object sky coordinates (RA, DEC) to u,v
-                shear = galsim.Shear(g1=0.00, g2=0.00)
-                S = shear.getMatrix()
-                print('starting shearing the full scene.')
-                u,v = tile_setup["tile_center"].project_rad(ra_list, dec_list, projection='gnomonic') # tile center units in radians
-                # shearing the position. 
-                pos = np.vstack((u, v))
-                sheared_uv = np.dot(S, pos)
-                print('tile center', tile_setup["tile_center"])
-                # convert sheared u,v back to sheared ra,dec
-                sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:].astype(float), sheared_uv[1,:].astype(float), projection='gnomonic')
-                # Shearing the full scene done. 
+                if base["stamp"]["shear_scene"]["type"] == 'G1G2':
+                    shear = galsim.Shear(g1=float(base["stamp"]["shear_scene"]["g1"]), g2=float(base["stamp"]["shear_scene"]["g2"]))
+                    S = shear.getMatrix()
+                    print('starting shearing the full scene.')
+                    u,v = tile_setup["tile_center"].project_rad(ra_grid_list, dec_grid_list, projection='gnomonic') # tile center units in radians
+                    # shearing the position. 
+                    pos = np.vstack((u, v))
+                    sheared_uv = np.dot(S, pos)
+                    print('tile center', tile_setup["tile_center"])
+                    # convert sheared u,v back to sheared ra,dec
+                    sheared_ra, sheared_dec = tile_setup["tile_center"].deproject_rad(sheared_uv[0,:].astype(float), sheared_uv[1,:].astype(float), projection='gnomonic')
+                    # Shearing the full scene done. 
 
-                ra_deg_list = [p / galsim.degrees for p in ra_list] # units in degrees
-                dec_deg_list = [p / galsim.degrees for p in dec_list] # units in degrees
-                sheared_ra_deg = np.degrees(sheared_ra)
-                sheared_dec_deg = np.degrees(sheared_dec)
+                    sheared_ra_deg = np.degrees(sheared_ra)
+                    sheared_dec_deg = np.degrees(sheared_dec)
 
-                sheared_ra_list = list(sheared_ra_deg)
-                sheared_dec_list = list(sheared_dec_deg)
+                    final_ra_list = list(sheared_ra_deg)
+                    final_dec_list = list(sheared_dec_deg)
+                else:
+                    final_ra_list = [p / galsim.degrees for p in ra_grid_list] # units in degrees
+                    final_dec_list = [p / galsim.degrees for p in dec_grid_list] # units in degrees
                 # add positions to galsim
                 base["image"]["world_pos"] = {
                     "type": "RADec",
@@ -729,7 +731,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': sheared_ra_list,
+                            'items': final_ra_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
@@ -738,7 +740,7 @@ class DESTileBuilder(OutputBuilder):
                         'type': 'Degrees',
                         'theta': {
                             'type': 'List',
-                            'items': sheared_dec_list,
+                            'items': final_dec_list,
                             'index': "$obj_num - start_obj_num",
                             '_setup_as_list': True
                         }
