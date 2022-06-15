@@ -2,37 +2,21 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  # run
+  - astropy
+  - fitsio
+  - galsim
+  - galsim_extra
+  - importlib_metadata
+  - numpy
+  # host setup.py
+  - setuptools_scm
+  - setuptools_scm_git_archive
+  # host build for eastlake
   - autoconf
   - automake
   - blas-devel=*=*openblas
-  - compilers
-  - python=3.8
-  - numpy
-  - astropy
-  - pyyaml
-  - numba
-  - scipy
-  - cython
-  - matplotlib
-  - pybind11
-  - fitsio
-  - galsim
-  - tqdm
-  - h5py
   - cfitsio
-  - ngmix=1.3
-  - meds
-  - metadetect
-  - piff
-  - esutil
-  - des-desmeds
-  - des-pizza-cutter
-  - psfex
-  - pixmappy
-  - joblib
-  - lsstdesc-coord
-  - pip
-  - galsim_extra
-  - setuptools_scm
-  - setuptools_scm_git_archive
-  - importlib_metadata
+  - compilers
+  - fftw
+  - libtool
