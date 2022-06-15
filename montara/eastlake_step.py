@@ -242,8 +242,6 @@ class MontaraGalSimRunner(Step):
 
                         image_files, image_ext = read_source_list(
                             img_list_file, 0)
-                        print('image file', image_files)
-                        print('image_ext', image_ext)
                         wgt_files, wgt_ext = read_source_list(
                             wgt_list_file, 2)
                         msk_files, msk_ext = read_source_list(
