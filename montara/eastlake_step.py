@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 import os
 import pprint
-import glob
 
 import numpy as np
 import galsim
@@ -186,6 +185,7 @@ class MontaraGalSimRunner(Step):
         # get source list files if running in single-epoch mode
         if mode == "single-epoch":
             for tilename in tilenames:
+                _tfiles = []
                 for band in bands:
                     stash.set_input_pizza_cutter_yaml(
                         read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
@@ -214,56 +214,16 @@ class MontaraGalSimRunner(Step):
                             for src in pyml["src_info"]
                         ]
                     stash.set_filepaths("truth_files", truth_files, tilename, band=band)
+                    _tfiles += truth_files
 
                 # if doing gridded objects, save the true position data
                 # to a fits file
                 if config['output'].get('grid_objects', False):
-                    # build up the unique truth entries via looking at the entries
-                    # for each CCD
-                    fnames = glob.glob(
-                        os.path.join(base_dir, desrun, tilename, "**/truth_*.dat"),
-                        recursive=True,
-                    )
-                    data = []
-                    for fname in fnames:
-                        if os.path.getsize(fname):
-                            _d = np.atleast_1d(np.genfromtxt(fname, names=True))
-                            data.append(_d)
-
-                    if len(data) == 0:
-                        raise RuntimeError(
-                            "No objects drawn for tile %s when using a grid!" % tilename
-                        )
-
-                    data = np.concatenate(data)
-                    uids, uinds = np.unique(data["id"], return_index=True)
-                    n_pos_data = len(uids)
-                    _pos_data = np.zeros(n_pos_data, dtype=[
-                            ('ra', 'f8'), ('dec', 'f8'),
-                            ('x', 'f8'), ('y', 'f8'),
-                            ('id', 'i8')])
-                    _pos_data['id'] = data['id'][uinds]
-                    _pos_data['ra'] = data['ra'][uinds]
-                    _pos_data['dec'] = data['dec'][uinds]
-                    _pos_data['x'] = data['x_coadd'][uinds]
-                    _pos_data['y'] = data['y_coadd'][uinds]
-
-                    # we'll stash this for later
-                    truepos_filename = os.path.join(
-                        base_dir,
-                        "true_positions",
-                        "%s-truepositions.fits" % tilename,
-                    )
-                    safe_mkdir(os.path.dirname(truepos_filename))
-                    self.logger.error(
-                        "writing true position data to %s" % truepos_filename)
-                    fitsio.write(truepos_filename, _pos_data, clobber=True)
-                    stash.set_filepaths("truepositions_file",
-                                        truepos_filename,
-                                        tilename)
+                    self._write_truth(_tfiles, tilename, base_dir, stash)
 
         elif mode == "coadd":
             for tilename in tilenames:
+                _tfiles = []
                 for band in bands:
                     stash.set_input_pizza_cutter_yaml(
                         read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
@@ -306,9 +266,54 @@ class MontaraGalSimRunner(Step):
                     truth_file = get_truth_from_image_file(fname, tilename)
                     stash.set_filepaths(
                         "truth_files", [truth_file], tilename, band=band)
+                    _tfiles.append(truth_file)
+
+                # if doing gridded objects, save the true position data
+                # to a fits file
+                if config['output'].get('grid_objects', False):
+                    self._write_truth(_tfiles, tilename, base_dir, stash)
 
             # add tilenames to stash for later steps
             stash["tilenames"] = tilenames
+
+    def _write_truth(self, fnames, tilename, base_dir, stash):
+        data = []
+        for fname in fnames:
+            if os.path.getsize(fname):
+                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
+                data.append(_d)
+
+        if len(data) == 0:
+            raise RuntimeError(
+                "No objects drawn for tile %s when using a grid!" % tilename
+            )
+
+        data = np.concatenate(data)
+        uids, uinds = np.unique(data["id"], return_index=True)
+        n_pos_data = len(uids)
+        _pos_data = np.zeros(n_pos_data, dtype=[
+                ('ra', 'f8'), ('dec', 'f8'),
+                ('x', 'f8'), ('y', 'f8'),
+                ('id', 'i8')])
+        _pos_data['id'] = data['id'][uinds]
+        _pos_data['ra'] = data['ra'][uinds]
+        _pos_data['dec'] = data['dec'][uinds]
+        _pos_data['x'] = data['x_coadd'][uinds]
+        _pos_data['y'] = data['y_coadd'][uinds]
+
+        # we'll stash this for later
+        truepos_filename = os.path.join(
+            base_dir,
+            "true_positions",
+            "%s-truepositions.fits" % tilename,
+        )
+        safe_mkdir(os.path.dirname(truepos_filename))
+        self.logger.error(
+            "writing true position data to %s" % truepos_filename)
+        fitsio.write(truepos_filename, _pos_data, clobber=True)
+        stash.set_filepaths("truepositions_file",
+                            truepos_filename,
+                            tilename)
 
     @classmethod
     def from_config_file(cls, config_file, logger=None):
