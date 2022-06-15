@@ -3,7 +3,6 @@ from __future__ import print_function
 import errno
 import os
 import numpy as np
-import galsim
 
 
 def safe_mkdir(d):
@@ -64,21 +63,3 @@ def get_truth_from_image_file(image_file, tilename):
     return os.path.join(
         os.path.dirname(image_file),
         "truth_%s_%s.dat" % (tilename, os.path.basename(image_file)))
-
-
-def get_tile_center(coadd_file):
-    """Get the center of the coadd tile from the coadd WCS header values.
-
-    Parameters
-    ----------
-    coadd_file : str
-        The path the coadd file to read.
-
-    Returns
-    -------
-    center : tuple of floats
-        A tuple of floats with the values of ('CRVAL1', 'CRVAL2') from the
-        coadd image header.
-    """
-    coadd_header = galsim.fits.FitsHeader(coadd_file)
-    return (str(coadd_header["CRVAL1"]), str(coadd_header["CRVAL2"]))

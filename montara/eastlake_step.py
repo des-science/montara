@@ -10,7 +10,7 @@ import fitsio
 import eastlake
 
 from eastlake.step import Step
-from .utils import safe_mkdir, get_truth_from_image_file, get_tile_center
+from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.rejectlist import RejectList
 from eastlake.des_files import read_pizza_cutter_yaml
 
@@ -215,12 +215,6 @@ class MontaraGalSimRunner(Step):
                         ]
                     stash.set_filepaths("truth_files", truth_files, tilename, band=band)
 
-                # also get tile center
-                tile_center = get_tile_center(
-                    stash.get_input_pizza_cutter_yaml(tilename, bands[0])["image_path"]
-                )
-                stash.set_tile_info_quantity("tile_center", tile_center, tilename)
-
                 # if doing gridded objects, save the true position data
                 # to a fits file
                 if config['output'].get('grid_objects', False):
@@ -312,11 +306,6 @@ class MontaraGalSimRunner(Step):
                     truth_file = get_truth_from_image_file(fname, tilename)
                     stash.set_filepaths(
                         "truth_files", [truth_file], tilename, band=band)
-
-                tile_center = get_tile_center(
-                    stash.get_input_pizza_cutter_yaml(tilename, bands[0])["image_path"]
-                )
-                stash.set_tile_info_quantity("tile_center", tile_center, tilename)
 
             # add tilenames to stash for later steps
             stash["tilenames"] = tilenames
