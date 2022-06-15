@@ -7,17 +7,10 @@ import numpy as np
 import astropy.io.fits as pyfits
 from galsim.config.output import OutputBuilder
 from eastlake.fits import writeMulti
-from eastlake.des_files import get_bkg_path, get_psfex_path, get_psfex_path_coadd
 from eastlake.rejectlist import RejectList
 
-from .utils import safe_mkdir
-from .tile_setup import (
-    Tile,
-    get_source_list_files,
-    write_source_list_file,
-    get_truth_from_image_file,
-    get_orig_source_list_file,
-)
+from .utils import safe_mkdir, get_truth_from_image_file
+from eastlake.des_files import Tile, read_pizza_cutter_yaml
 
 MODES = ["single-epoch", "coadd"]  # beast too?
 
@@ -102,7 +95,7 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             params["bkg_filename"], hdu=params.get("bkg_hdu", 1))
         return bkg_image
 
-    def getNoiseVariance(self, config, base):
+    def getNoiseVariance(self, config, base, full=None):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
         orig_im_fits = pyfits.open(params["orig_image_path"])
@@ -181,7 +174,7 @@ class DESTileBuilder(OutputBuilder):
             galsim.config.eval_base_variables += [
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
-                "file_path", "desdata", "desrun", "object_type_list",
+                "file_path", "imsim_data", "desrun", "object_type_list",
                 "is_rejectlisted", "coadd_wcs",
             ]
 
@@ -199,11 +192,11 @@ class DESTileBuilder(OutputBuilder):
         # to avoid doing it more than once.
         # Also build file lists that will be saved to the output directory
         # we'll need the path to the original DES data, and the run
-        if "desdata" in config:
-            desdata = galsim.config.ParseValue(config, "desdata", base, str)[0]
+        if "imsim_data" in config:
+            imsim_data = galsim.config.ParseValue(config, "imsim_data", base, str)[0]
         else:
-            desdata = os.environ["DESDATA"]
-        base["desdata"] = desdata
+            imsim_data = os.environ["IMSIM_DATA"]
+        base["imsim_data"] = imsim_data
         desrun = config["desrun"]
         base["desrun"] = desrun
 
@@ -224,28 +217,28 @@ class DESTileBuilder(OutputBuilder):
 
             # The Tile class from .tile_setup collects a load
             # of juicy information for each tile
-            tile_info = Tile.from_tilename(tilename, bands=bands)
+            tile_info = Tile.from_tilename(tilename, bands=bands, desrun=desrun)
 
             # Here we just need to set a few more things
             # like the name of the output files
-            image_paths_from_desdata = [
-                os.path.relpath(f, desdata)
+            image_paths_from_imsim_data = [
+                os.path.relpath(f, imsim_data)
                 for f in tile_info["image_files"]]
             file_names_with_fz = [
                 os.path.join(base["base_dir"], f)
-                for f in image_paths_from_desdata]
+                for f in image_paths_from_imsim_data]
             # remove .fz
             output_file_names = [f[:-3] if f.endswith(".fits.fz") else f
                                  for f in file_names_with_fz]
 
             # Now for the coadds
             orig_coadd_files = tile_info["coadd_file_list"]
-            coadd_paths_from_desdata = [
-                os.path.relpath(f, desdata)
+            coadd_paths_from_imsim_data = [
+                os.path.relpath(f, imsim_data)
                 for f in orig_coadd_files]
             coadd_paths_with_fz = [
                 os.path.join(base["base_dir"], f)
-                for f in coadd_paths_from_desdata]
+                for f in coadd_paths_from_imsim_data]
             coadd_output_filenames = [
                 (f[:-3] if f.endswith(".fits.fz") else f) for f in coadd_paths_with_fz]
 
@@ -263,7 +256,7 @@ class DESTileBuilder(OutputBuilder):
                 # image is rejectlisted
                 is_rejectlisted_list = [
                     rejectlist.img_file_is_rejectlisted(os.path.basename(f))
-                    for f in image_paths_from_desdata
+                    for f in image_paths_from_imsim_data
                 ]
                 for i, is_rejectlisted in enumerate(is_rejectlisted_list):
                     if is_rejectlisted:
@@ -299,13 +292,14 @@ class DESTileBuilder(OutputBuilder):
         if "eval_variables" not in base:
             base["eval_variables"] = OrderedDict()
         if mode == "single-epoch":
+            orig_psfex_path = tile_setup["psfex_files"][file_num]
+            orig_piff_path = tile_setup["piff_files"][file_num]
+            orig_bkg_path = tile_setup["bkg_files"][file_num]
             base["orig_image_path"] = tile_setup["image_files"][file_num]
-            base["psfex_path"] = tile_setup["psfex_files"][file_num]
-            if "piff_files" in tile_setup:
-                base["piff_path"] = tile_setup["piff_files"][file_num]
+            base["psfex_path"] = orig_psfex_path
+            base["piff_path"] = orig_piff_path
             base["eval_variables"]["sband"] = tile_setup["band_list"][file_num]
-            base["eval_variables"]["fmag_zp"] \
-                = tile_setup["mag_zp_list"][file_num]
+            base["eval_variables"]["fmag_zp"] = tile_setup["mag_zp_list"][file_num]
             band = tile_setup["band_list"][file_num]
             file_name = tile_setup["output_file_list"][file_num]
             if "rejectlist_file" in config:
@@ -314,14 +308,15 @@ class DESTileBuilder(OutputBuilder):
         elif (mode == "coadd"):
             # For coadd/meds modes we just have one file per band per tile, so
             # most of the below is the same, except for the file_name
+            orig_psfex_path = tile_setup["coadd_psfex_files"][file_num]
             base["orig_image_path"] = tile_setup["coadd_file_list"][file_num]
-            base["psfex_path"] = tile_setup["coadd_psfex_files"][file_num]
-            base["eval_variables"]["sband"] \
-                = tile_setup["coadd_band_list"][file_num]
-            base["eval_variables"]["fmag_zp"] \
-                = tile_setup["coadd_mag_zp_list"][file_num]
+            base["psfex_path"] = orig_psfex_path
+            base["eval_variables"]["sband"] = tile_setup["coadd_band_list"][file_num]
+            base["eval_variables"]["fmag_zp"] = tile_setup["coadd_mag_zp_list"][file_num]
             band = tile_setup["coadd_band_list"][file_num]
             file_name = tile_setup["coadd_output_file_list"][file_num]
+            orig_piff_path = None
+            orig_bkg_path = None
 
         # these are not put into eval_variables because we do not
         # expect to use them in the galsim config
@@ -347,20 +342,6 @@ class DESTileBuilder(OutputBuilder):
                 tilename, base["eval_variables"]["fdec_min_deg"],
                 base["eval_variables"]["fdec_max_deg"]))
 
-        # Write the source files
-        # might as well write them all in one go
-        # so just do it when tile_num == band_num == 0
-        if mode == "single-epoch":
-            source_list_files = get_source_list_files(
-                base["base_dir"], desrun, tilename, bands)
-
-            # Write source list file if this is the first image for
-            # a given band
-            first_in_band = (file_num == (tile_setup["band_list"]).index(band))
-            if first_in_band:
-                write_source_list_file(
-                    source_list_files, tile_setup, band, logger)
-
         # Now set some fields for the sim
         base["image"]["wcs"] = {}
         base["image"]["wcs"]["type"] = "Fits"
@@ -368,8 +349,7 @@ class DESTileBuilder(OutputBuilder):
 
         # set file_name in config
         config["file_name"] = file_name
-        config["truth"]["file_name"] = get_truth_from_image_file(
-            file_name, tilename)
+        config["truth"]["file_name"] = get_truth_from_image_file(file_name, tilename)
 
         # make sure we're not overwriting the original image somehow.
         assert config["file_name"] != base["orig_image_path"]
@@ -396,7 +376,7 @@ class DESTileBuilder(OutputBuilder):
                     logger.error(
                         "You can't use noise_mode=skysigma in coadd mode, "
                         "because the coadds don't have a skysigma.")
-                    raise(e)
+                    raise e
                 if add_bkg:
                     logger.debug("add_bkg is set to True, but we're in "
                                  "coadd mode, setting to False")
@@ -410,14 +390,15 @@ class DESTileBuilder(OutputBuilder):
             }
 
             if add_bkg:
-                orig_bkg_path = get_bkg_path(
-                    base["orig_image_path"], desdata=desdata)
                 # the bkg for DES is in hdu 1 which is the default for the
                 # ChipNoise class so we do not give it here
                 base["image"]["noise"]["bkg_filename"] = orig_bkg_path
 
                 # also copy background file
-                output_bkg_path = get_bkg_path(config["file_name"], None)
+                output_bkg_path = os.path.join(
+                    base["base_dir"],
+                    os.path.relpath(orig_bkg_path, imsim_data),
+                )
                 output_bkg_dir = os.path.dirname(output_bkg_path)
                 if not os.path.isdir(output_bkg_dir):
                     safe_mkdir(output_bkg_dir)
@@ -429,13 +410,10 @@ class DESTileBuilder(OutputBuilder):
 
         if base["psf"]["type"] in ("DES_PSFEx", "DES_PSFEx_perturbed"):
             # If using psfex PSF, copy file to output directory and file_info
-            orig_psfex_path = base["psfex_path"]
-            if mode == "single-epoch":
-                output_psfex_path = get_psfex_path(config["file_name"])
-            elif mode == "coadd":
-                output_psfex_path = get_psfex_path_coadd(config["file_name"])
-            else:
-                raise ValueError("invalid mode")
+            output_psfex_path = os.path.join(
+                base["base_dir"],
+                os.path.relpath(orig_psfex_path, imsim_data),
+            )
             output_psfex_dir = os.path.dirname(output_psfex_path)
             if not os.path.isdir(output_psfex_dir):
                 safe_mkdir(output_psfex_dir)
@@ -444,8 +422,14 @@ class DESTileBuilder(OutputBuilder):
             # make sure the draw method is correct for PSFEx
             assert base['stamp']['draw_method'] == 'no_pixel'
         elif base["psf"]["type"] == "DES_Piff":
-            # NOTE: we are not copying the Piff files over to the
-            # output dir since they are not a part of the DESDM outputs
+            output_piff_path = os.path.join(
+                base["base_dir"],
+                os.path.relpath(orig_piff_path, imsim_data),
+            )
+            output_piff_dir = os.path.dirname(output_piff_path)
+            if not os.path.isdir(output_piff_dir):
+                safe_mkdir(output_piff_dir)
+            shutil.copyfile(orig_piff_path, output_piff_path)
 
             # make sure the draw method is correct for Piff
             if base["psf"].get("no_smooth", False):
@@ -456,9 +440,10 @@ class DESTileBuilder(OutputBuilder):
             try:
                 assert "rejectlist_file" in config
             except AssertionError as e:
-                logger.error("""You need to provide a rejectlist_file
-                when using psf type 'DES_Piff'""")
-                raise(e)
+                logger.error(
+                    "You need to provide a rejectlist_file when using psf type 'DES_Piff'"
+                )
+                raise e
 
         else:
             # we assume that anything else is ok to draw with auto
@@ -511,10 +496,10 @@ class DESTileBuilder(OutputBuilder):
                     try:
                         assert (isinstance(seed, int) and (seed != 0))
                     except AssertionError as e:
-                        print(
+                        logger.critical(
                             "image.random_seed must be set to a non-zero integer for "
                             "output type DES_Tile")
-                        raise(e)
+                        raise e
                     base['rng'] = galsim.BaseDeviate(seed)
                     ngalaxies = galsim.config.ParseValue(nobjects, 'ngalaxies',
                                                          base, int)[0]
@@ -562,10 +547,10 @@ class DESTileBuilder(OutputBuilder):
                     try:
                         assert (isinstance(seed, int) and (seed != 0))
                     except AssertionError as e:
-                        print(
+                        logger.critical(
                             "image.random_seed must be set to a non-zero integer for "
                             "output type DES_Tile")
-                        raise(e)
+                        raise e
                     base['rng'] = galsim.BaseDeviate(seed)
                     nobj = galsim.config.ParseValue(
                         base['image'], 'nobjects', base, int)[0]
@@ -573,11 +558,16 @@ class DESTileBuilder(OutputBuilder):
             # if not a dict, should be an int (this will be checked below though).
             nobj = nobjects
 
+            # we can correct whole floats so do that
+            if int(nobj) == nobj:
+                nobj = int(nobj)
+
         # Check that we now have an integer nobj
         try:
             assert isinstance(nobj, int)
-        except AssertionError:
-            print("found non-integer nobj:", nobj)
+        except AssertionError as e:
+            logger.critical("found non-integer nobj:", nobj)
+            raise e
         base['image']['nobjects'] = nobj
         logger.info(
             'nobjects = %s',
@@ -746,21 +736,17 @@ class DESTileBuilder(OutputBuilder):
 
     def getNFilesTile(self, config, tilename):
         bands = config["bands"]
-        if "desdata" in config:
-            desdata = galsim.config.ParseValue(config, "desdata", {}, str)[0]
+        if "imsim_data" in config:
+            imsim_data = galsim.config.ParseValue(config, "imsim_data", {}, str)[0]
         else:
-            desdata = os.environ["DESDATA"]
+            imsim_data = os.environ["IMSIM_DATA"]
         desrun = config["desrun"]
         nfiles = 0
         mode = config.get("mode", "single-epoch")
         for band in bands:
             if mode == "single-epoch":
-                source_list_file = get_orig_source_list_file(
-                    desdata, desrun, tilename, band)
-                with open(os.path.expandvars(source_list_file), 'r') as f:
-                    lines = f.readlines()
-                    image_files = [ln.strip() for ln in lines if ln.strip() != ""]
-                    nfiles += len(image_files)
+                pyml = read_pizza_cutter_yaml(imsim_data, desrun, tilename, band)
+                nfiles += len(pyml["src_info"])
             elif mode == "coadd":
                 nfiles += 1
             else:
@@ -768,7 +754,7 @@ class DESTileBuilder(OutputBuilder):
                     "invalid mode, should be either 'single-epoch' or 'coadd'")
         return nfiles
 
-    def getNFiles(self, config, base):
+    def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 
         As far as the config processing is concerned, this is the number of
@@ -807,7 +793,7 @@ class DESTileBuilder(OutputBuilder):
         logger.info('file_num: %d' % base['file_num'])
         logger.info('image_num: %d' % base['image_num'])
 
-        ignore += ['tilename', 'bands', 'desrun', 'desdata', 'noise_mode',
+        ignore += ['tilename', 'bands', 'desrun', 'imsim_data', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
                    'rejectlist_file', 'dither_scale', 'coadd_wcs']
         ignore += ['file_name', 'dir']
