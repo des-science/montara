@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 import os
 import pprint
-import glob
 
 import numpy as np
 import galsim
@@ -9,14 +8,10 @@ import galsim.config
 import fitsio
 import eastlake
 
-from .multiband_meds import MultibandMEDSBuilder
 from eastlake.step import Step
-from eastlake.utils import get_logger
-from .utils import safe_mkdir
+from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.rejectlist import RejectList
-from .tile_setup import (
-    get_source_list_files, get_tile_center,
-    get_truth_from_image_file, get_output_coadd_path)
+from eastlake.des_files import read_pizza_cutter_yaml
 
 
 class MontaraGalSimRunner(Step):
@@ -48,7 +43,7 @@ class MontaraGalSimRunner(Step):
         # And that the column names correspond to what we expect them to...so
         # do a bit of enforcement of that here.
         output = self.config["output"]
-        if output["type"] in ["DESTile", "MultibandMEDS"]:
+        if output["type"] in ["DESTile"]:
             if "truth" not in output:
                 output["truth"] = {}
                 output["truth"]["colnames"] = {}
@@ -87,7 +82,7 @@ class MontaraGalSimRunner(Step):
             if "stamp" in self.config:
                 if "objects" in self.config["stamp"]:
                     add_to_truth["obj_type_index"] = "@current_obj_type_index"
-            if "catalog_sampler" in self.config["input"]:
+            if "catalog_sampler" in self.config.get("input", {}):
                 add_to_truth["gal_catalog_row"] = {
                     "type": "Eval",
                     "str": "-1 if @current_obj_type=='star' else int(gal_catalog_row)",  # noqa
@@ -95,7 +90,7 @@ class MontaraGalSimRunner(Step):
                         "type": "catalog_sampler_value",
                         "col": "catalog_row"}
                 }
-            if "desstar" in self.config["input"]:
+            if "desstar" in self.config.get("input", {}):
                 add_to_truth["star_catalog_row"] = {
                     "type": "Eval",
                     "str": "-1 if @current_obj_type=='gal' else int(star_catalog_row)",  # noqa
@@ -103,16 +98,6 @@ class MontaraGalSimRunner(Step):
                         "type": "DESStarValue",
                         "col": "catalog_row"}
                 }
-            if output["type"] == "MultibandMEDS":
-                # no ra and dec
-                add_to_truth.pop("ra")
-                add_to_truth.pop("dec")
-                # id column
-                add_to_truth["id"] = (
-                    "$tile_start_obj_num + (obj_num -start_obj_num) "
-                    "// @output.nstamps_per_object")
-                if "star_catalog_row" in add_to_truth:
-                    add_to_truth["star_catalog_row"]["fstar_catalog_row"]["index"] = "$star_index"  # noqa
 
             for col in add_to_truth:
                 if col in output["truth"]["columns"]:
@@ -160,13 +145,11 @@ class MontaraGalSimRunner(Step):
         # following steps.
 
         # Get the output type and number of files
-        image_type = config["output"]["type"]
         bands = config["output"]["bands"]
         nbands = len(bands)
         tilenames = stash["tilenames"]
         tilename = tilenames[0]
         assert len(tilenames) == 1
-        ntiles = 1
 
         self.logger.error(
             "Simulated tile %s in bands %s" % (
@@ -187,255 +170,150 @@ class MontaraGalSimRunner(Step):
         else:
             stash["draw_method"] = "auto"
 
-        if image_type == "DESTile":
-            desrun = galsim.config.GetCurrentValue(
-                "desrun", config["output"], str, config)
-            try:
-                desdata = galsim.config.GetCurrentValue(
-                    "desdata", config["output"], str, config)
-            except KeyError:
-                desdata = os.environ['DESDATA']
-            mode = config["output"].get("mode", "single-epoch")
-            stash["desrun"] = desrun
-            stash["desdata"] = desdata
-            base_dir = self.base_dir
+        desrun = galsim.config.GetCurrentValue(
+            "desrun", config["output"], str, config)
+        try:
+            imsim_data = galsim.config.GetCurrentValue(
+                "imsim_data", config["output"], str, config)
+        except KeyError:
+            imsim_data = os.environ['IMSIM_DATA']
+        mode = config["output"].get("mode", "single-epoch")
+        stash["desrun"] = desrun
+        stash["imsim_data"] = imsim_data
+        base_dir = self.base_dir
 
-            # get source list files if running in single-epoch mode
-            if mode == "single-epoch":
-                stash["tile_info"] = {}
-                for tilename in tilenames:
-                    source_list_files = get_source_list_files(
-                        base_dir, desrun, tilename, bands)
-                    stash["tile_info"][tilename] = {}
-                    for band in bands:
-                        if band not in stash["tile_info"][tilename]:
-                            stash["tile_info"][tilename][band] = {}
-                        # get source list files
-                        stash["tile_info"][tilename][band][
-                            "source_list_files"] \
-                            = source_list_files[band]
-                        # and read this info into stash for handy downstream
-                        # use...
-                        (img_list_file, wgt_list_file, msk_list_file,
-                         mag_zp_list_file) = source_list_files[band]
+        # get source list files if running in single-epoch mode
+        if mode == "single-epoch":
+            for tilename in tilenames:
+                _tfiles = []
+                for band in bands:
+                    stash.set_input_pizza_cutter_yaml(
+                        read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
+                        tilename,
+                        band,
+                    )
 
-                        def read_source_list(
-                                filename, default_ext, output_type=str):
-                            with open(filename, 'r') as f:
-                                lines = f.readlines()
-                            output_list, exts = [], []
-                            if len(lines) == 0:
-                                raise ValueError(
-                                    "Unexpectedly found a zero line "
-                                    "source list file %s" % filename)
-                            for ln in lines:
-                                ext = default_ext
-                                s = (ln.strip()).split(" ")[0]
-                                if s[-1] == "]":
-                                    ext = int(s[-2])
-                                    s = s[:-3]
-                                output_list.append(output_type(s))
-                                exts.append(ext)
-                            # make sure all exts are the same
-                            assert len(set(exts)) <= 1
-                            return output_list, exts[0]
+                    # truth
+                    with stash.update_output_pizza_cutter_yaml(tilename, band) as pyml:
+                        for i in range(len(pyml["src_info"])):
+                            fname = pyml["src_info"][i]["image_path"]
+                            if fname.endswith(".fz"):
+                                fname = fname[:-3]
 
-                        image_files, image_ext = read_source_list(
-                            img_list_file, 0)
-                        wgt_files, wgt_ext = read_source_list(
-                            wgt_list_file, 2)
-                        msk_files, msk_ext = read_source_list(
-                            msk_list_file, 1)
-                        mag_zps, _ = read_source_list(
-                            mag_zp_list_file, None, float)
+                            pyml["src_info"][i]["image_path"] = fname
+                            pyml["src_info"][i]["image_ext"] = 0
 
-                        stash.set_filepaths(
-                            "img_files", image_files, tilename, band=band)
-                        stash["tile_info"][tilename][band]["img_ext"] \
-                            = image_ext
-                        stash.set_filepaths(
-                            "wgt_files", wgt_files, tilename, band=band)
-                        stash["tile_info"][tilename][band]["wgt_ext"] = wgt_ext
-                        stash.set_filepaths(
-                            "msk_files", msk_files, tilename, band=band)
-                        stash["tile_info"][tilename][band]["msk_ext"] = msk_ext
-                        stash["tile_info"][tilename][band]["mag_zps"] = mag_zps
+                            pyml["src_info"][i]["bmask_path"] = fname
+                            pyml["src_info"][i]["bmask_ext"] = 1
 
-                        # truth
+                            pyml["src_info"][i]["weight_path"] = fname
+                            pyml["src_info"][i]["weight_ext"] = 2
+
                         truth_files = [
-                            get_truth_from_image_file(f, tilename)
-                            for f in image_files]
-                        stash.set_filepaths(
-                            "truth_files", truth_files, tilename, band=band)
+                            get_truth_from_image_file(src["image_path"], tilename)
+                            for src in pyml["src_info"]
+                        ]
+                    stash.set_filepaths("truth_files", truth_files, tilename, band=band)
+                    _tfiles += truth_files
 
-                    # also get tile center
-                    tile_center = get_tile_center(
-                        desdata, desrun, tilename, bands[0])
-                    stash["tile_info"][tilename]["tile_center"] = tile_center
+                # if doing gridded objects, save the true position data
+                # to a fits file
+                if config['output'].get('grid_objects', False):
+                    self._write_truth(_tfiles, tilename, base_dir, stash)
 
-                    # if doing gridded objects, save the true position data
-                    # to a fits file
-                    if config['output'].get('grid_objects', False):
-                        # build up the unique truth entries via looking at the entries
-                        # for each CCD
-                        fnames = glob.glob(
-                            os.path.join(base_dir, desrun, tilename, "**/truth_*.dat"),
-                            recursive=True,
-                        )
-                        data = []
-                        for fname in fnames:
-                            if os.path.getsize(fname):
-                                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
-                                data.append(_d)
+        elif mode == "coadd":
+            for tilename in tilenames:
+                _tfiles = []
+                for band in bands:
+                    stash.set_input_pizza_cutter_yaml(
+                        read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
+                        tilename,
+                        band,
+                    )
 
-                        if len(data) == 0:
-                            raise RuntimeError(
-                                "No objects drawn for tile %s when using a grid!" % tilename
+                    with stash.update_output_pizza_cutter_yaml(tilename, band) as pyml:
+                        fname = pyml["image_path"]
+                        if fname.endswith(".fz"):
+                            fname = fname[:-3]
+
+                        pyml["image_path"] = fname
+                        pyml["image_ext"] = 0
+
+                        if (
+                            "badpix" in config["output"]
+                            and "hdu" in config["output"]["badpix"]
+                        ):
+                            pyml["bmask_path"] = fname
+                            pyml["bmask_ext"] = config["output"]["badpix"]["hdu"]
+                        else:
+                            self.logger.error(
+                                "not updating coadd bmask path and ext..."
+                                "this will likely cause problems downstream"
                             )
 
-                        data = np.concatenate(data)
-                        uids, uinds = np.unique(data["id"], return_index=True)
-                        n_pos_data = len(uids)
-                        _pos_data = np.zeros(n_pos_data, dtype=[
-                                ('ra', 'f8'), ('dec', 'f8'),
-                                ('x', 'f8'), ('y', 'f8'),
-                                ('id', 'i8')])
-                        _pos_data['id'] = data['id'][uinds]
-                        _pos_data['ra'] = data['ra'][uinds]
-                        _pos_data['dec'] = data['dec'][uinds]
-                        _pos_data['x'] = data['x_coadd'][uinds]
-                        _pos_data['y'] = data['y_coadd'][uinds]
-
-                        # we'll stash this for later
-                        truepos_filename = os.path.join(
-                            base_dir,
-                            "true_positions",
-                            "%s-truepositions.fits" % tilename,
-                        )
-                        safe_mkdir(os.path.dirname(truepos_filename))
-                        self.logger.error(
-                            "writing true position data to %s" % truepos_filename)
-                        fitsio.write(truepos_filename, _pos_data, clobber=True)
-                        stash.set_filepaths("truepositions_file",
-                                            truepos_filename,
-                                            tilename)
-
-            elif mode == "coadd":
-                # set the coadd filenames
-                stash["tile_info"] = {}
-                for tilename in tilenames:
-                    stash["tile_info"][tilename] = {}
-                    # add tile center
-                    tile_center = get_tile_center(
-                        desdata, desrun, tilename, bands[0])
-                    stash["tile_info"][tilename]["tile_center"] = tile_center
-                    for band in bands:
-                        if band not in stash["tile_info"][tilename]:
-                            stash["tile_info"][tilename][band] = {}
-                        band_file_info = stash["tile_info"][tilename][band]
-
-                        # Get coadd file names etc. to be used by e.g. swarp
-                        # step.
-                        output_coadd_path = get_output_coadd_path(
-                            desdata, desrun, tilename, band, base_dir,
-                            fz=False)
-                        stash.set_filepaths(
-                            "coadd_file", output_coadd_path, tilename,
-                            band=band)
-                        band_file_info["coadd_ext"] = 0
-
-                        added_mask = False
-                        if "badpix" in config["output"]:
-                            if "hdu" in config["output"]["badpix"]:
-                                stash.set_filepaths(
-                                    "coadd_mask_file", output_coadd_path,
-                                    tilename, band=band)
-                                band_file_info["coadd_mask_ext"] \
-                                    = config["output"]["badpix"]["hdu"]
-                                added_mask = True
-                        if not added_mask:
+                        if (
+                            "weight" in config["output"]
+                            and "hdu" in config["output"]["weight"]
+                        ):
+                            pyml["weight_path"] = fname
+                            pyml["weight_ext"] = config["output"]["weight"]["hdu"]
+                        else:
                             self.logger.error(
-                                "not adding coadd_mask_file to tile_info..."
+                                "not updating coadd weight path and ext..."
                                 "this will likely cause problems downstream")
 
-                        added_weight = False
-                        if "weight" in config["output"]:
-                            if "hdu" in config["output"]["weight"]:
-                                stash.set_filepaths(
-                                    "coadd_weight_file", output_coadd_path,
-                                    tilename, band=band)
-                                band_file_info["coadd_weight_ext"] \
-                                    = config["output"]["weight"]["hdu"]
-                                added_weight = True
-                        if not added_weight:
-                            self.logger.error(
-                                "not adding coadd_weight_file to tile_info..."
-                                "this will likely cause problems downstream")
-
-                        # truth
-                        truth_file = get_truth_from_image_file(
-                            output_coadd_path, tilename)
-                        stash.set_filepaths(
-                            "truth_files", [truth_file], tilename, band=band)
-
-        elif (image_type == "MultibandMEDS"):
-            # set the meds and truth filenames in the stash
-            stash["tile_info"] = {}
-            # To do this, we can loop through file_num calling the builder
-            # setup function.
-            output = config["output"]
-            bands = output["bands"]
-            nbands = len(bands)
-            file_num = 0
-            logger = get_logger("", 0)
-
-            # loop through tiles and bands, calling the setup function
-            # for MultibandMEDS,
-            # which should then allow access to the correct output filenames,
-            # and also the tilenames
-            tilenames = []
-            builder = MultibandMEDSBuilder()
-            for tile_num in range(ntiles):
-                for band_num, band in enumerate(bands):
-                    galsim.config.SetupConfigFileNum(
-                        config, file_num, 0, 0, logger)
-                    builder.setup(output, config, file_num, logger)
-                    tilename = galsim.config.GetCurrentValue(
-                        "tilename", config, str)
-                    if tilename not in tilenames:
-                        tilenames.append(tilename)
-                    if tilename not in stash["tile_info"]:
-                        stash["tile_info"][tilename] = {}
-                    if band not in stash["tile_info"][tilename]:
-                        stash["tile_info"][tilename][band] = {}
-
-                    # get meds file and truth file
-                    meds_filename = galsim.config.GetCurrentValue(
-                        "file_name", output, str, config)
-                    d = None
-                    if "dir" in config["output"]:
-                        d = galsim.config.GetCurrentValue(
-                            "dir", output, str, config)
-                        meds_filename = os.path.join(d, meds_filename)
+                    # truth
+                    truth_file = get_truth_from_image_file(fname, tilename)
                     stash.set_filepaths(
-                        "meds_file", meds_filename, tilename, band=band)
-                    if "truth" in output:
-                        truth_filename = galsim.config.GetCurrentValue(
-                            "truth.file_name", output, str, config)
-                        if "dir" in output["truth"]:
-                            truth_filename = os.path.join(
-                                output["truth"]["dir"], truth_filename)
-                        elif d is not None:
-                            truth_filename = os.path.join(d, truth_filename)
-                    stash.set_filepaths(
-                        "truth_files", [truth_filename], tilename, band=band)
-                    file_num += 1
+                        "truth_files", [truth_file], tilename, band=band)
+                    _tfiles.append(truth_file)
 
-            # Set the MEDS_DIR environment variable, assumed to be
-            # self.base_dir/meds
-            os.environ["MEDS_DIR"] = os.path.join(self.base_dir, "meds")
+                # if doing gridded objects, save the true position data
+                # to a fits file
+                if config['output'].get('grid_objects', False):
+                    self._write_truth(_tfiles, tilename, base_dir, stash)
+
             # add tilenames to stash for later steps
             stash["tilenames"] = tilenames
+
+    def _write_truth(self, fnames, tilename, base_dir, stash):
+        data = []
+        for fname in fnames:
+            if os.path.getsize(fname):
+                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
+                data.append(_d)
+
+        if len(data) == 0:
+            raise RuntimeError(
+                "No objects drawn for tile %s when using a grid!" % tilename
+            )
+
+        data = np.concatenate(data)
+        uids, uinds = np.unique(data["id"], return_index=True)
+        n_pos_data = len(uids)
+        _pos_data = np.zeros(n_pos_data, dtype=[
+                ('ra', 'f8'), ('dec', 'f8'),
+                ('x', 'f8'), ('y', 'f8'),
+                ('id', 'i8')])
+        _pos_data['id'] = data['id'][uinds]
+        _pos_data['ra'] = data['ra'][uinds]
+        _pos_data['dec'] = data['dec'][uinds]
+        _pos_data['x'] = data['x_coadd'][uinds]
+        _pos_data['y'] = data['y_coadd'][uinds]
+
+        # we'll stash this for later
+        truepos_filename = os.path.join(
+            base_dir,
+            "true_positions",
+            "%s-truepositions.fits" % tilename,
+        )
+        safe_mkdir(os.path.dirname(truepos_filename))
+        self.logger.error(
+            "writing true position data to %s" % truepos_filename)
+        fitsio.write(truepos_filename, _pos_data, clobber=True)
+        stash.set_filepaths("truepositions_file",
+                            truepos_filename,
+                            tilename)
 
     @classmethod
     def from_config_file(cls, config_file, logger=None):
