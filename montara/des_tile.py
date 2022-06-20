@@ -826,7 +826,6 @@ class DESTileBuilder(OutputBuilder):
         # why we are not using super(...).
         images = OutputBuilder.buildImages(
             self, config, base, file_num, image_num, obj_num, ignore, logger)
-        print('images', images)
         return images
 
     def writeFile(self, data, file_name, config, base, logger):
