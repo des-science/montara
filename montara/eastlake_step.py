@@ -200,14 +200,19 @@ class MontaraGalSimRunner(Step):
                             if fname.endswith(".fz"):
                                 fname = fname[:-3]
 
+                            with fitsio.FITS(fname, "rw") as fits:
+                                fits[0].write_key("EXTNAME", "sci")
+                                fits[1].write_key("EXTNAME", "msk")
+                                fits[2].write_key("EXTNAME", "wgt")
+
                             pyml["src_info"][i]["image_path"] = fname
-                            pyml["src_info"][i]["image_ext"] = 0
+                            pyml["src_info"][i]["image_ext"] = "sci"
 
                             pyml["src_info"][i]["bmask_path"] = fname
-                            pyml["src_info"][i]["bmask_ext"] = 1
+                            pyml["src_info"][i]["bmask_ext"] = "msk"
 
                             pyml["src_info"][i]["weight_path"] = fname
-                            pyml["src_info"][i]["weight_ext"] = 2
+                            pyml["src_info"][i]["weight_ext"] = "wgt"
 
                         truth_files = [
                             get_truth_from_image_file(src["image_path"], tilename)
@@ -236,31 +241,36 @@ class MontaraGalSimRunner(Step):
                         if fname.endswith(".fz"):
                             fname = fname[:-3]
 
-                        pyml["image_path"] = fname
-                        pyml["image_ext"] = 0
+                        with fitsio.FITS(fname, "rw") as fits:
+                            fits[0].write_key("EXTNAME", "sci")
 
-                        if (
-                            "badpix" in config["output"]
-                            and "hdu" in config["output"]["badpix"]
-                        ):
-                            pyml["bmask_path"] = fname
-                            pyml["bmask_ext"] = config["output"]["badpix"]["hdu"]
-                        else:
-                            self.logger.error(
-                                "not updating coadd bmask path and ext..."
-                                "this will likely cause problems downstream"
-                            )
+                            pyml["image_path"] = fname
+                            pyml["image_ext"] = "sci"
 
-                        if (
-                            "weight" in config["output"]
-                            and "hdu" in config["output"]["weight"]
-                        ):
-                            pyml["weight_path"] = fname
-                            pyml["weight_ext"] = config["output"]["weight"]["hdu"]
-                        else:
-                            self.logger.error(
-                                "not updating coadd weight path and ext..."
-                                "this will likely cause problems downstream")
+                            if (
+                                "badpix" in config["output"]
+                                and "hdu" in config["output"]["badpix"]
+                            ):
+                                pyml["bmask_path"] = fname
+                                pyml["bmask_ext"] = "msk"
+                                fits[config["output"]["badpix"]["hdu"]].write_key("EXTNAME", "msk")
+                            else:
+                                self.logger.error(
+                                    "not updating coadd bmask path and ext..."
+                                    "this will likely cause problems downstream"
+                                )
+
+                            if (
+                                "weight" in config["output"]
+                                and "hdu" in config["output"]["weight"]
+                            ):
+                                pyml["weight_path"] = fname
+                                pyml["weight_ext"] = "wgt"
+                                fits[config["output"]["weight"]["hdu"]].write_key("EXTNAME", "wgt")
+                            else:
+                                self.logger.error(
+                                    "not updating coadd weight path and ext..."
+                                    "this will likely cause problems downstream")
 
                     # truth
                     truth_file = get_truth_from_image_file(fname, tilename)
