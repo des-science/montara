@@ -413,12 +413,12 @@ class DESTileBuilder(OutputBuilder):
             else:
                 base["image"]["noise"]["_zero_bkg"] = True
                 print("processing file:", output_bkg_path, flush=True)
-                print("mean before:", np.mean(fitsio.read(output_bkg_path)), flush=True)
+                print("mean before:", np.mean(fitsio.read(output_bkg_path, ext="sci")), flush=True)
                 with fitsio.FITS(output_bkg_path, "rw") as fits:
                     _im = fits["sci"].read()
                     _im[:, :] = 0.0
                     fits["sci"].write(_im)
-                print("mean after:", np.mean(fitsio.read(output_bkg_path)), flush=True)
+                print("mean after:", np.mean(fitsio.read(output_bkg_path, ext="sci")), flush=True)
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
