@@ -431,6 +431,8 @@ class DESTileBuilder(OutputBuilder):
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
                 "Can't use add_bkg option without noise_mode at present")
+        else:
+            raise RuntimeError("You must use `noise_mode` in the `output` section!")
 
         if base["psf"]["type"] in ("DES_PSFEx", "DES_PSFEx_perturbed"):
             # If using psfex PSF, copy file to output directory and file_info
