@@ -85,23 +85,26 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
 
         if "bkg_filename" in params:
             if params["_zero_bkg"]:
-                print("mean before:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+                # for w/e reason fitsio cannot overwrite file in place so we
+                # unpack, zero and then repack
                 unpacked_fname, _ = unpack_fits_file_if_needed(params["bkg_filename"], "sci")
                 with fitsio.FITS(unpacked_fname, "rw") as fits:
                     _im = fits["sci"].read()
                     _im[:, :] = 0.0
                     fits["sci"].write(_im)
-                print("mean after:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
-                print("repacking", flush=True)
-                subprocess.run(
-                    "rm -f %s && fpack %s" % (params["bkg_filename"], unpacked_fname),
+                subprocess.check_output(
+                    "rm -f %s && fpack %s" % (
+                        os.path.basename(params["bkg_filename"]),
+                        os.path.basename(unpacked_fname),
+                    ),
                     shell=True,
-                    check=True,
+                    cwd=os.path.dirname(unpacked_fname),
                 )
-                print("mean after repacking:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
-                assert np.mean(fitsio.read(params["bkg_filename"])) == 0
 
             bkg_image = self.getBkg(config, base)
+            if params["_zero_bkg"]:
+                assert bkg_image.array.mean() == 0, "bkg not zero when it should be!"
+
             logger.error("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
             im += bkg_image
