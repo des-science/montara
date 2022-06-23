@@ -2,6 +2,7 @@ import os
 import shutil
 from collections import OrderedDict
 
+import fitsio
 import galsim
 import numpy as np
 import astropy.io.fits as pyfits
@@ -13,6 +14,13 @@ from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.des_files import Tile, read_pizza_cutter_yaml
 
 MODES = ["single-epoch", "coadd"]  # beast too?
+
+
+def _write_fpacked_zeros(dst, ext):
+    with fitsio.FITS(dst, "rw") as fits:
+        im = fits[ext].read()
+        im[:, :] = 0.0
+        fits[ext].write(im)
 
 
 class ChipNoiseBuilder(galsim.config.NoiseBuilder):
@@ -403,6 +411,17 @@ class DESTileBuilder(OutputBuilder):
                 if not os.path.isdir(output_bkg_dir):
                     safe_mkdir(output_bkg_dir)
                 shutil.copyfile(orig_bkg_path, output_bkg_path)
+            else:
+                # write zeros
+                output_bkg_path = os.path.join(
+                    base["base_dir"],
+                    os.path.relpath(orig_bkg_path, imsim_data),
+                )
+                output_bkg_dir = os.path.dirname(output_bkg_path)
+                if not os.path.isdir(output_bkg_dir):
+                    safe_mkdir(output_bkg_dir)
+                shutil.copyfile(orig_bkg_path, output_bkg_path)
+                _write_fpacked_zeros(output_bkg_path, "sci")
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
