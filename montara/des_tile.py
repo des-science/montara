@@ -88,7 +88,7 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
                     im[:, :] = 0.0
                     fits["sci"].write(im)
             bkg_image = self.getBkg(config, base)
-            logger.critical("adding bkg with mean %.2e from file %s" % (
+            logger.error("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
             im += bkg_image
         else:
