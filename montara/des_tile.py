@@ -366,6 +366,7 @@ class DESTileBuilder(OutputBuilder):
                 base["eval_variables"]["fdec_max_deg"]))
 
         # Now set some fields for the sim
+        # TODO - this needs to be either the scamp header or pixmappy
         base["image"]["wcs"] = {}
         base["image"]["wcs"]["type"] = "Fits"
         base["image"]["wcs"]["file_name"] = base["orig_image_path"]
