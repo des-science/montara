@@ -420,6 +420,7 @@ class DESTileBuilder(OutputBuilder):
                 output_bkg_dir = os.path.dirname(output_bkg_path)
                 if not os.path.isdir(output_bkg_dir):
                     safe_mkdir(output_bkg_dir)
+                logger.warning("writing zeros for background file %s", output_bkg_path)
                 shutil.copyfile(orig_bkg_path, output_bkg_path)
                 _write_fpacked_zeros(output_bkg_path, "sci")
 
