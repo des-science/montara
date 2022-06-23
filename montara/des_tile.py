@@ -82,8 +82,13 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         im.addNoise(noise)
 
         if "bkg_filename" in params:
+            if params["_zero_bkg"]:
+                with fitsio.FITS(params["bkg_filename"], "rw") as fits:
+                    im = fits["sci"].read()
+                    im[:, :] = 0.0
+                    fits["sci"].write(im)
             bkg_image = self.getBkg(config, base)
-            logger.error("adding bkg with mean %.2e from file %s" % (
+            logger.critical("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
             im += bkg_image
         else:
@@ -92,14 +97,6 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
     def getBkg(self, config, base):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
-
-        print("zero bkg:", params["_zero_bkg"], flush=True)
-
-        if params["_zero_bkg"]:
-            with fitsio.FITS(params["bkg_filename"], "rw") as fits:
-                im = fits["sci"].read()
-                im[:, :] = 0.0
-                fits["sci"].write(im)
 
         bkg_image = galsim.fits.read(
             params["bkg_filename"], hdu=params.get("bkg_hdu", 1))
