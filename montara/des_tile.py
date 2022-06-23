@@ -1,6 +1,7 @@
 import os
 import shutil
 from collections import OrderedDict
+import subprocess
 
 import fitsio
 import galsim
@@ -12,6 +13,7 @@ from eastlake.rejectlist import RejectList
 
 from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.des_files import Tile, read_pizza_cutter_yaml
+from eastlake.utils import unpack_fits_file_if_needed
 
 MODES = ["single-epoch", "coadd"]  # beast too?
 
@@ -82,13 +84,23 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         im.addNoise(noise)
 
         if "bkg_filename" in params:
-            # if params["_zero_bkg"]:
-            #     print("mean before:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
-            #     with fitsio.FITS(params["bkg_filename"], "rw") as fits:
-            #         _im = fits["sci"].read()
-            #         _im[:, :] = 0.0
-            #         fits["sci"].write(_im)
-            #     print("mean after:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+            if params["_zero_bkg"]:
+                print("mean before:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+                unpacked_fname, _ = unpack_fits_file_if_needed(params["bkg_filename"], "sci")
+                with fitsio.FITS(unpacked_fname, "rw") as fits:
+                    _im = fits["sci"].read()
+                    _im[:, :] = 0.0
+                    fits["sci"].write(_im)
+                print("mean after:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+                print("repacking", flush=True)
+                subprocess.run(
+                    "rm -f %s && fpack %s" % (params["bkg_filename"], unpacked_fname),
+                    shell=True,
+                    check=True,
+                )
+                print("mean after repacking:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+                assert np.mean(fitsio.read(params["bkg_filename"])) == 0
+
             bkg_image = self.getBkg(config, base)
             logger.error("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
@@ -412,13 +424,6 @@ class DESTileBuilder(OutputBuilder):
                 base["image"]["noise"]["_zero_bkg"] = False
             else:
                 base["image"]["noise"]["_zero_bkg"] = True
-                print("processing file:", output_bkg_path, flush=True)
-                print("mean before:", np.mean(fitsio.read(output_bkg_path, ext="sci")), flush=True)
-                with fitsio.FITS(output_bkg_path, "rw") as fits:
-                    _im = fits["sci"].read()
-                    _im[:, :] = 0.0
-                    fits["sci"].write(_im)
-                print("mean after:", np.mean(fitsio.read(output_bkg_path, ext="sci")), flush=True)
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
