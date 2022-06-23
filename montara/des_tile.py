@@ -16,13 +16,6 @@ from eastlake.des_files import Tile, read_pizza_cutter_yaml
 MODES = ["single-epoch", "coadd"]  # beast too?
 
 
-def _write_fpacked_zeros(dst, ext):
-    with fitsio.FITS(dst, "rw") as fits:
-        im = fits[ext].read()
-        im[:, :] = 0.0
-        fits[ext].write(im)
-
-
 class ChipNoiseBuilder(galsim.config.NoiseBuilder):
     """Build noise for a given image using input images. Optionally, a
     background is added as well.
@@ -74,7 +67,7 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             values. So use the median in those areas.
     """
     req = {"orig_image_path": str, "noise_mode": str}
-    opt = {"bkg_filename": str, "noise_fac": float, "bkg_hdu": int}
+    opt = {"bkg_filename": str, "noise_fac": float, "bkg_hdu": int, "_zero_bkg": bool}
 
     def addNoise(
             self, config, base, im, rng, current_var, draw_method, logger):
@@ -99,8 +92,16 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
     def getBkg(self, config, base):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
+
+        if params["_zero_bkg"]:
+            with fitsio.FITS(params["bkg_filename"], "rw") as fits:
+                im = fits["sci"].read()
+                im[:, :] = 0.0
+                fits["sci"].write(im)
+
         bkg_image = galsim.fits.read(
             params["bkg_filename"], hdu=params.get("bkg_hdu", 1))
+
         return bkg_image
 
     def getNoiseVariance(self, config, base, full=None):
@@ -397,32 +398,28 @@ class DESTileBuilder(OutputBuilder):
                 "noise_fac": config.get("noise_fac", None),
             }
 
+            # also copy background file
+            output_bkg_path = os.path.join(
+                base["base_dir"],
+                os.path.relpath(orig_bkg_path, imsim_data),
+            )
+            output_bkg_dir = os.path.dirname(output_bkg_path)
+            if not os.path.isdir(output_bkg_dir):
+                safe_mkdir(output_bkg_dir)
+            shutil.copyfile(orig_bkg_path, output_bkg_path)
+
             if add_bkg:
                 # the bkg for DES is in hdu 1 which is the default for the
                 # ChipNoise class so we do not give it here
                 base["image"]["noise"]["bkg_filename"] = orig_bkg_path
-
-                # also copy background file
-                output_bkg_path = os.path.join(
-                    base["base_dir"],
-                    os.path.relpath(orig_bkg_path, imsim_data),
-                )
-                output_bkg_dir = os.path.dirname(output_bkg_path)
-                if not os.path.isdir(output_bkg_dir):
-                    safe_mkdir(output_bkg_dir)
-                shutil.copyfile(orig_bkg_path, output_bkg_path)
+                base["image"]["noise"]["_zero_bkg"] = False
             else:
-                # write zeros
-                output_bkg_path = os.path.join(
-                    base["base_dir"],
-                    os.path.relpath(orig_bkg_path, imsim_data),
-                )
-                output_bkg_dir = os.path.dirname(output_bkg_path)
-                if not os.path.isdir(output_bkg_dir):
-                    safe_mkdir(output_bkg_dir)
-                logger.warning("writing zeros for background file %s", output_bkg_path)
                 shutil.copyfile(orig_bkg_path, output_bkg_path)
-                _write_fpacked_zeros(output_bkg_path, "sci")
+
+                # the bkg for DES is in hdu 1 which is the default for the
+                # ChipNoise class so we do not give it here
+                base["image"]["noise"]["bkg_filename"] = output_bkg_path
+                base["image"]["noise"]["_zero_bkg"] = True
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
