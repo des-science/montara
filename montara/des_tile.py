@@ -82,12 +82,13 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         im.addNoise(noise)
 
         if "bkg_filename" in params:
-            if params["_zero_bkg"]:
-                with fitsio.FITS(params["bkg_filename"], "rw") as fits:
-                    _im = fits["sci"].read()
-                    _im[:, :] = 0.0
-                    fits["sci"].write(_im)
-            print("mean:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+            # if params["_zero_bkg"]:
+            #     print("mean before:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
+            #     with fitsio.FITS(params["bkg_filename"], "rw") as fits:
+            #         _im = fits["sci"].read()
+            #         _im[:, :] = 0.0
+            #         fits["sci"].write(_im)
+            #     print("mean after:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
             bkg_image = self.getBkg(config, base)
             logger.error("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
@@ -98,12 +99,8 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
     def getBkg(self, config, base):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
-
-        print("reading file:", params["bkg_filename"], flush=True)
-        print("mean:", np.mean(fitsio.read(params["bkg_filename"])), flush=True)
         bkg_image = galsim.fits.read(
             params["bkg_filename"], hdu=params.get("bkg_hdu", 1))
-
         return bkg_image
 
     def getNoiseVariance(self, config, base, full=None):
@@ -409,19 +406,19 @@ class DESTileBuilder(OutputBuilder):
             if not os.path.isdir(output_bkg_dir):
                 safe_mkdir(output_bkg_dir)
             shutil.copyfile(orig_bkg_path, output_bkg_path)
+            base["image"]["noise"]["bkg_filename"] = output_bkg_path
 
             if add_bkg:
-                # the bkg for DES is in hdu 1 which is the default for the
-                # ChipNoise class so we do not give it here
-                base["image"]["noise"]["bkg_filename"] = orig_bkg_path
                 base["image"]["noise"]["_zero_bkg"] = False
             else:
-                shutil.copyfile(orig_bkg_path, output_bkg_path)
-
-                # the bkg for DES is in hdu 1 which is the default for the
-                # ChipNoise class so we do not give it here
-                base["image"]["noise"]["bkg_filename"] = output_bkg_path
                 base["image"]["noise"]["_zero_bkg"] = True
+                print("processing file:", output_bkg_path, flush=True)
+                print("mean before:", np.mean(fitsio.read(output_bkg_path)), flush=True)
+                with fitsio.FITS(output_bkg_path, "rw") as fits:
+                    _im = fits["sci"].read()
+                    _im[:, :] = 0.0
+                    fits["sci"].write(_im)
+                print("mean after:", np.mean(fitsio.read(output_bkg_path)), flush=True)
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
