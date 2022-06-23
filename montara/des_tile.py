@@ -93,6 +93,8 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         params, safe = galsim.config.GetAllParams(
             config, base, req=self.req, opt=self.opt)
 
+        print("zero bkg:", params["_zero_bkg"], flush=True)
+
         if params["_zero_bkg"]:
             with fitsio.FITS(params["bkg_filename"], "rw") as fits:
                 im = fits["sci"].read()
