@@ -198,7 +198,7 @@ class DESTileBuilder(OutputBuilder):
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
                 "file_path", "imsim_data", "desrun", "object_type_list",
-                "is_rejectlisted", "coadd_wcs", "n_se_test",
+                "is_rejectlisted", "coadd_wcs",
             ]
 
         # Now, if we haven't already, we need to read in some things which
@@ -839,7 +839,7 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'imsim_data', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file', 'dither_scale', 'coadd_wcs']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'n_se_test']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
