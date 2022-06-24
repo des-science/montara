@@ -238,9 +238,19 @@ class DESTileBuilder(OutputBuilder):
 
         if "_tile_setup" not in config:
 
+            if "n_se_test" in config:
+                n_se_test = galsim.config.ParseValue(config, "n_se_test", base, int)[0]
+                logger.warning(
+                    "Using only %d images for tile %s!", tilename, n_se_test
+                )
+            else:
+                n_se_test = None
+
             # The Tile class from .tile_setup collects a load
             # of juicy information for each tile
-            tile_info = Tile.from_tilename(tilename, bands=bands, desrun=desrun)
+            tile_info = Tile.from_tilename(
+                tilename, bands=bands, desrun=desrun, n_se_test=n_se_test
+            )
 
             # Here we just need to set a few more things
             # like the name of the output files
@@ -772,7 +782,14 @@ class DESTileBuilder(OutputBuilder):
         mode = config.get("mode", "single-epoch")
         for band in bands:
             if mode == "single-epoch":
-                pyml = read_pizza_cutter_yaml(imsim_data, desrun, tilename, band)
+                if "n_se_test" in config:
+                    n_se_test = galsim.config.ParseValue(config, "n_se_test", {}, int)[0]
+                else:
+                    n_se_test = None
+
+                pyml = read_pizza_cutter_yaml(
+                    imsim_data, desrun, tilename, band, n_se_test=n_se_test
+                )
                 nfiles += len(pyml["src_info"])
             elif mode == "coadd":
                 nfiles += 1

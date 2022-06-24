@@ -181,6 +181,7 @@ class MontaraGalSimRunner(Step):
         stash["desrun"] = desrun
         stash["imsim_data"] = imsim_data
         base_dir = self.base_dir
+        n_se_test = config["output"].get("n_se_test", None)
 
         # get source list files if running in single-epoch mode
         if mode == "single-epoch":
@@ -188,7 +189,9 @@ class MontaraGalSimRunner(Step):
                 _tfiles = []
                 for band in bands:
                     stash.set_input_pizza_cutter_yaml(
-                        read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
+                        read_pizza_cutter_yaml(
+                            imsim_data, desrun, tilename, band, n_se_test=n_se_test,
+                        ),
                         tilename,
                         band,
                     )
@@ -231,7 +234,9 @@ class MontaraGalSimRunner(Step):
                 _tfiles = []
                 for band in bands:
                     stash.set_input_pizza_cutter_yaml(
-                        read_pizza_cutter_yaml(imsim_data, desrun, tilename, band),
+                        read_pizza_cutter_yaml(
+                            imsim_data, desrun, tilename, band, n_se_test=n_se_test,
+                        ),
                         tilename,
                         band,
                     )
