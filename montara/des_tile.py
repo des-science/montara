@@ -198,7 +198,7 @@ class DESTileBuilder(OutputBuilder):
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
                 "file_path", "imsim_data", "desrun", "object_type_list",
-                "is_rejectlisted", "coadd_wcs",
+                "is_rejectlisted", "coadd_wcs", "n_se_test",
             ]
 
         # Now, if we haven't already, we need to read in some things which
@@ -241,7 +241,7 @@ class DESTileBuilder(OutputBuilder):
             if "n_se_test" in config:
                 n_se_test = galsim.config.ParseValue(config, "n_se_test", base, int)[0]
                 logger.warning(
-                    "Using only %d images for tile %s!", tilename, n_se_test
+                    "Using only %d images for tile %s!", n_se_test, tilename,
                 )
             else:
                 n_se_test = None
