@@ -29,6 +29,7 @@ class MontaraGalSimRunner(Step):
             config, base_dir, name=name, logger=logger, verbosity=verbosity,
             log_file=log_file)
         self.config['output']['dir'] = base_dir
+        self.config["image"]["random_seed"] = self.stash["step_primary_seed"]
 
         if self.config["output"]["type"] == "MultibandMEDS":
             if "truth" in self.config["output"]:
