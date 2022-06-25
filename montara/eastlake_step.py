@@ -29,7 +29,6 @@ class MontaraGalSimRunner(Step):
             config, base_dir, name=name, logger=logger, verbosity=verbosity,
             log_file=log_file)
         self.config['output']['dir'] = base_dir
-        self.config["image"]["random_seed"] = self.stash["step_primary_seed"]
 
         if self.config["output"]["type"] == "MultibandMEDS":
             if "truth" in self.config["output"]:
@@ -113,6 +112,8 @@ class MontaraGalSimRunner(Step):
 
     def execute(self, stash, new_params=None, except_abort=False, verbosity=1.,
                 log_file=None, comm=None):
+
+        self.config["image"]["random_seed"] = stash["step_primary_seed"]
 
         if comm is not None:
             rank = comm.Get_rank()
