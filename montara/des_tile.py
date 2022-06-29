@@ -1,7 +1,9 @@
 import os
 import shutil
 from collections import OrderedDict
+import subprocess
 
+import fitsio
 import galsim
 import numpy as np
 import astropy.io.fits as pyfits
@@ -11,6 +13,7 @@ from eastlake.rejectlist import RejectList
 
 from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.des_files import Tile, read_pizza_cutter_yaml
+from eastlake.utils import unpack_fits_file_if_needed
 
 MODES = ["single-epoch", "coadd"]  # beast too?
 
@@ -66,7 +69,7 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             values. So use the median in those areas.
     """
     req = {"orig_image_path": str, "noise_mode": str}
-    opt = {"bkg_filename": str, "noise_fac": float, "bkg_hdu": int}
+    opt = {"bkg_filename": str, "noise_fac": float, "bkg_hdu": int, "_zero_bkg": bool}
 
     def addNoise(
             self, config, base, im, rng, current_var, draw_method, logger):
@@ -81,7 +84,26 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         im.addNoise(noise)
 
         if "bkg_filename" in params:
+            if params["_zero_bkg"]:
+                # for w/e reason fitsio cannot overwrite file in place so we
+                # unpack, zero and then repack
+                unpacked_fname, _ = unpack_fits_file_if_needed(params["bkg_filename"], "sci")
+                with fitsio.FITS(unpacked_fname, "rw") as fits:
+                    _im = fits["sci"].read()
+                    _im[:, :] = 0.0
+                    fits["sci"].write(_im)
+                subprocess.check_output(
+                    "rm -f %s && fpack %s" % (
+                        os.path.basename(params["bkg_filename"]),
+                        os.path.basename(unpacked_fname),
+                    ),
+                    shell=True,
+                    cwd=os.path.dirname(unpacked_fname),
+                )
+
             bkg_image = self.getBkg(config, base)
+            if params["_zero_bkg"]:
+                assert bkg_image.array.mean() == 0, "bkg not zero when it should be!"
             logger.error("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
             im += bkg_image
@@ -215,9 +237,19 @@ class DESTileBuilder(OutputBuilder):
 
         if "_tile_setup" not in config:
 
+            if "n_se_test" in config:
+                n_se_test = galsim.config.ParseValue(config, "n_se_test", base, int)[0]
+                logger.warning(
+                    "Using only %d images for tile %s!", n_se_test, tilename,
+                )
+            else:
+                n_se_test = None
+            
             # The Tile class from .tile_setup collects a load
             # of juicy information for each tile
-            tile_info = Tile.from_tilename(tilename, bands=bands, desrun=desrun)
+            tile_info = Tile.from_tilename(
+                tilename, bands=bands, desrun=desrun, n_se_test=n_se_test
+            )
 
             # Here we just need to set a few more things
             # like the name of the output files
@@ -343,6 +375,7 @@ class DESTileBuilder(OutputBuilder):
                 base["eval_variables"]["fdec_max_deg"]))
 
         # Now set some fields for the sim
+        # TODO - this needs to be either the scamp header or pixmappy
         base["image"]["wcs"] = {}
         base["image"]["wcs"]["type"] = "Fits"
         base["image"]["wcs"]["file_name"] = base["orig_image_path"]
@@ -389,24 +422,27 @@ class DESTileBuilder(OutputBuilder):
                 "noise_fac": config.get("noise_fac", None),
             }
 
-            if add_bkg:
-                # the bkg for DES is in hdu 1 which is the default for the
-                # ChipNoise class so we do not give it here
-                base["image"]["noise"]["bkg_filename"] = orig_bkg_path
+            # also copy background file
+            output_bkg_path = os.path.join(
+                base["base_dir"],
+                os.path.relpath(orig_bkg_path, imsim_data),
+            )
+            output_bkg_dir = os.path.dirname(output_bkg_path)
+            if not os.path.isdir(output_bkg_dir):
+                safe_mkdir(output_bkg_dir)
+            shutil.copyfile(orig_bkg_path, output_bkg_path)
+            base["image"]["noise"]["bkg_filename"] = output_bkg_path
 
-                # also copy background file
-                output_bkg_path = os.path.join(
-                    base["base_dir"],
-                    os.path.relpath(orig_bkg_path, imsim_data),
-                )
-                output_bkg_dir = os.path.dirname(output_bkg_path)
-                if not os.path.isdir(output_bkg_dir):
-                    safe_mkdir(output_bkg_dir)
-                shutil.copyfile(orig_bkg_path, output_bkg_path)
+            if add_bkg:
+                base["image"]["noise"]["_zero_bkg"] = False
+            else:
+                base["image"]["noise"]["_zero_bkg"] = True
 
         elif "noise" in config and "add_bkg" in config["noise"]:
             raise ValueError(
                 "Can't use add_bkg option without noise_mode at present")
+        else:
+            raise RuntimeError("You must use `noise_mode` in the `output` section!")
 
         if base["psf"]["type"] in ("DES_PSFEx", "DES_PSFEx_perturbed"):
             # If using psfex PSF, copy file to output directory and file_info
@@ -767,7 +803,14 @@ class DESTileBuilder(OutputBuilder):
         mode = config.get("mode", "single-epoch")
         for band in bands:
             if mode == "single-epoch":
-                pyml = read_pizza_cutter_yaml(imsim_data, desrun, tilename, band)
+                if "n_se_test" in config:
+                    n_se_test = galsim.config.ParseValue(config, "n_se_test", {}, int)[0]
+                else:
+                    n_se_test = None
+
+                pyml = read_pizza_cutter_yaml(
+                    imsim_data, desrun, tilename, band, n_se_test=n_se_test
+                )
                 nfiles += len(pyml["src_info"])
             elif mode == "coadd":
                 nfiles += 1
@@ -817,7 +860,7 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'imsim_data', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'shear_full_scene']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'shear_full_scene', 'n_se_test']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
