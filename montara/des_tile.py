@@ -245,6 +245,7 @@ class DESTileBuilder(OutputBuilder):
             else:
                 n_se_test = None
             
+            
             # The Tile class from .tile_setup collects a load
             # of juicy information for each tile
             tile_info = Tile.from_tilename(
