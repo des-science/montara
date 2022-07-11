@@ -45,3 +45,23 @@ def add_field(a, descr, arrays):
     for d, c in zip(descr, arrays):
         b[d[0]] = c
     return b
+
+
+def get_truth_from_image_file(image_file, tilename):
+    """Get the truth catalog path from the image path and tilename.
+
+    Parameters
+    ----------
+    image_file : str
+        The path to the image file.
+    tilename : str
+        The name of the coadd tile.
+
+    Returns
+    -------
+    truth_path : str
+        The path to the truth file.
+    """
+    return os.path.join(
+        os.path.dirname(image_file),
+        "truth_%s_%s.dat" % (tilename, os.path.basename(image_file)))

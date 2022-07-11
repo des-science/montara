@@ -10,14 +10,8 @@ from eastlake.fits import writeMulti
 from eastlake.des_files import get_bkg_path, get_psfex_path, get_psfex_path_coadd
 from eastlake.rejectlist import RejectList
 
-from .utils import safe_mkdir
-from .tile_setup import (
-    Tile,
-    get_source_list_files,
-    write_source_list_file,
-    get_truth_from_image_file,
-    get_orig_source_list_file,
-)
+from .utils import safe_mkdir, get_truth_from_image_file
+from eastlake.des_files import Tile
 
 MODES = ["single-epoch", "coadd"]  # beast too?
 
@@ -301,11 +295,9 @@ class DESTileBuilder(OutputBuilder):
         if mode == "single-epoch":
             base["orig_image_path"] = tile_setup["image_files"][file_num]
             base["psfex_path"] = tile_setup["psfex_files"][file_num]
-            if "piff_files" in tile_setup:
-                base["piff_path"] = tile_setup["piff_files"][file_num]
+            base["piff_path"] = tile_setup["piff_files"][file_num]
             base["eval_variables"]["sband"] = tile_setup["band_list"][file_num]
-            base["eval_variables"]["fmag_zp"] \
-                = tile_setup["mag_zp_list"][file_num]
+            base["eval_variables"]["fmag_zp"] = tile_setup["mag_zp_list"][file_num]
             band = tile_setup["band_list"][file_num]
             file_name = tile_setup["output_file_list"][file_num]
             if "rejectlist_file" in config:
@@ -316,10 +308,8 @@ class DESTileBuilder(OutputBuilder):
             # most of the below is the same, except for the file_name
             base["orig_image_path"] = tile_setup["coadd_file_list"][file_num]
             base["psfex_path"] = tile_setup["coadd_psfex_files"][file_num]
-            base["eval_variables"]["sband"] \
-                = tile_setup["coadd_band_list"][file_num]
-            base["eval_variables"]["fmag_zp"] \
-                = tile_setup["coadd_mag_zp_list"][file_num]
+            base["eval_variables"]["sband"] = tile_setup["coadd_band_list"][file_num]
+            base["eval_variables"]["fmag_zp"] = tile_setup["coadd_mag_zp_list"][file_num]
             band = tile_setup["coadd_band_list"][file_num]
             file_name = tile_setup["coadd_output_file_list"][file_num]
 
