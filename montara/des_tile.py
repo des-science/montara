@@ -198,7 +198,7 @@ class DESTileBuilder(OutputBuilder):
                 "band_num", "exp_num", "chip_num",
                 "tile_start_obj_num", "nfiles", "tilename", "band",
                 "file_path", "imsim_data", "desrun", "object_type_list",
-                "is_rejectlisted", "coadd_wcs",
+                "is_rejectlisted", "coadd_wcs", "ccdnum",
             ]
 
         # Now, if we haven't already, we need to read in some things which
@@ -328,11 +328,15 @@ class DESTileBuilder(OutputBuilder):
             orig_psfex_path = tile_setup["psfex_files"][file_num]
             orig_piff_path = tile_setup["piff_files"][file_num]
             orig_bkg_path = tile_setup["bkg_files"][file_num]
+            orig_head_path = tile_setup["head_files"][file_num]
             base["orig_image_path"] = tile_setup["image_files"][file_num]
             base["psfex_path"] = orig_psfex_path
             base["piff_path"] = orig_piff_path
+            base["head_path"] = orig_head_path
+            base["ccdnum"] = tile_setup["ccdnum_list"][file_num]
             base["eval_variables"]["sband"] = tile_setup["band_list"][file_num]
             base["eval_variables"]["fmag_zp"] = tile_setup["mag_zp_list"][file_num]
+            base["eval_variables"]["iccdnum"] = tile_setup["ccdnum_list"][file_num]
             band = tile_setup["band_list"][file_num]
             file_name = tile_setup["output_file_list"][file_num]
             if "rejectlist_file" in config:
@@ -376,10 +380,17 @@ class DESTileBuilder(OutputBuilder):
                 base["eval_variables"]["fdec_max_deg"]))
 
         # Now set some fields for the sim
-        # TODO - this needs to be either the scamp header or pixmappy
         base["image"]["wcs"] = {}
-        base["image"]["wcs"]["type"] = "Fits"
-        base["image"]["wcs"]["file_name"] = base["orig_image_path"]
+        se_wcs_type = config.get("se_wcs", "head")
+        if se_wcs_type == "image" or mode == "coadd":
+            base["image"]["wcs"]["type"] = "Fits"
+            base["image"]["wcs"]["file_name"] = base["orig_image_path"]
+        elif se_wcs_type == "head":
+            base["image"]["wcs"]["type"] = "Fits"
+            base["image"]["wcs"]["file_name"] = base["head_path"]
+            base["image"]["wcs"]["text_file"] = True
+        else:
+            raise RuntimeError("SE WCS type %s not recognized!" % se_wcs_type)
 
         # set file_name in config
         config["file_name"] = file_name
