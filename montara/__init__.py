@@ -4,7 +4,7 @@ except ImportError:
     from importlib_metadata import version, PackageNotFoundError
 
 try:
-    __version__ = version("eastlake")
+    __version__ = version("montara")
 except PackageNotFoundError:
     # package is not installed
     pass
