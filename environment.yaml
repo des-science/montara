@@ -1,22 +1,15 @@
 channels:
   - conda-forge
-  - defaults
 dependencies:
   # run
-  - astropy
-  - fitsio
   - galsim
+  - fitsio
+  - numpy
+  - astropy
+  - des-eastlake
   - galsim_extra
   - importlib_metadata
-  - numpy
+  - cfitsio  # for fpack
   # host setup.py
   - setuptools_scm
   - setuptools_scm_git_archive
-  # host build for eastlake
-  - autoconf
-  - automake
-  - blas-devel=*=*openblas
-  - cfitsio
-  - compilers
-  - fftw
-  - libtool
