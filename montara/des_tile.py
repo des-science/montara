@@ -480,19 +480,10 @@ class DESTileBuilder(OutputBuilder):
             shutil.copyfile(orig_piff_path, output_piff_path)
 
             # make sure the draw method is correct for Piff
-            if base["psf"].get("no_smooth", False):
+            if base["psf"].get("depixelize", False):
                 assert base['stamp']['draw_method'] == 'no_pixel'
             else:
                 assert base['stamp']['draw_method'] == 'auto'
-            # also make sure we've provided a rejectlist
-            try:
-                assert "rejectlist_file" in config
-            except AssertionError as e:
-                logger.error(
-                    "You need to provide a rejectlist_file when using psf type 'DES_Piff'"
-                )
-                raise e
-
         else:
             # we assume that anything else is ok to draw with auto
             if 'draw_method' in base['stamp']:
