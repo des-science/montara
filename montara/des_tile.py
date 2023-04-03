@@ -481,9 +481,9 @@ class DESTileBuilder(OutputBuilder):
 
             # make sure the draw method is correct for Piff
             if base["psf"].get("depixelize", False):
-                assert base['stamp']['draw_method'] == 'no_pixel'
-            else:
                 assert base['stamp']['draw_method'] == 'auto'
+            else:
+                assert base['stamp']['draw_method'] == 'no_pixel'
         else:
             # we assume that anything else is ok to draw with auto
             if 'draw_method' in base['stamp']:
