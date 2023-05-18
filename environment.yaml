@@ -10,6 +10,7 @@ dependencies:
   - galsim_extra
   - importlib_metadata
   - hexalattice
+  - matplotlib
   - cfitsio  # for fpack
   # host setup.py
   - setuptools_scm
