@@ -736,8 +736,8 @@ class DESTileBuilder(OutputBuilder):
                     # convert the spacing to right number of pixels
                     # we also recenter the grid since it comes out centered at 0,0
                     hg *= spacing
-                    hxpos = hg[:, 0].ravel()
-                    hypos = hg[:, 1].ravel()
+                    hxpos = hg[:, 0].ravel() + L/2
+                    hypos = hg[:, 1].ravel() + L/2
                     ndone = 0
                     for hx, hy in zip(hxpos, hypos):
                         offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
