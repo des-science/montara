@@ -10,6 +10,7 @@ dependencies:
   - galsim_extra
   - importlib_metadata
   - cfitsio  # for fpack
+  - matplotlib-base
   # host setup.py
   - setuptools_scm
   - setuptools_scm_git_archive
