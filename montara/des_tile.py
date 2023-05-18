@@ -10,7 +10,7 @@ import astropy.io.fits as pyfits
 from galsim.config.output import OutputBuilder
 from eastlake.fits import writeMulti
 from eastlake.rejectlist import RejectList
-from hexalattice.hexalattice import create_hex_grid
+from .hexalattice import create_hex_grid
 
 from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.des_files import Tile, read_pizza_cutter_yaml
