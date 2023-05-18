@@ -761,10 +761,6 @@ class DESTileBuilder(OutputBuilder):
                         "Try decreasing output.grid_hex_spacing_fudge_factor to generate a denser grid!"
                     )
                 else:
-                    logger.info(
-                        "generating gridded objects positions with dither %s",
-                        config.get("dither_scale", 0.5),
-                    )
                     # in this case we want to use a grid of objects positions.
                     # compute this grid in X,Y for the coadd,
                     # then convert to world position
