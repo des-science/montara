@@ -10,6 +10,7 @@ import astropy.io.fits as pyfits
 from galsim.config.output import OutputBuilder
 from eastlake.fits import writeMulti
 from eastlake.rejectlist import RejectList
+from hexalattice.hexalattice import create_hex_grid
 
 from .utils import safe_mkdir, get_truth_from_image_file
 from eastlake.des_files import Tile, read_pizza_cutter_yaml
@@ -702,26 +703,83 @@ class DESTileBuilder(OutputBuilder):
             if "world_pos" not in base["image"]:
                 base["image"]["world_pos"] = {}
             if not base["image"]["world_pos"].get("_setup_as_list", False):
+                if 'grid_border' in config:
+                    border = galsim.config.ParseValue(config, 'grid_border', base, float)[0]
+                else:
+                    border = 0  # 0 pixels
+
+                if "grid_hex_spacing_fudge_factor" in config:
+                    hex_fudge = galsim.config.ParseValue(config, 'grid_hex_spacing_fudge_factor', base, float)[0]
+                else:
+                    hex_fudge = 1.0
+
                 logger.info(
-                    "generating gridded objects positions with dither %s",
-                    config.get("dither_scale", 0.5),
+                    "generating gridded objects positions with dither %s and border %s",
+                    config.get("dither_scale", 0.5), border,
                 )
-                # in this case we want to use a grid of objects positions.
-                # compute this grid in X,Y for the coadd,
-                # then convert to world position
+                L = 10000  # tile length in pixels
+                width = L - 2 * border
                 x_pos_list = []
                 y_pos_list = []
-                L = 10000  # tile length in pixels
-                nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
-                object_sep = L / nobj_per_row
                 uniform = galsim.UniformDeviate(first)
-                for i in range(nobjects):
-                    offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
-                    offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
-                    x_pos_list.append(
-                        (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x))
-                    y_pos_list.append(
-                        object_sep / 2. + object_sep * (i // nobj_per_row) + offset_y)
+
+                if config.get("grid_objects", False) == "hex":
+
+                    spacing = width / np.sqrt(nobjects) * hex_fudge
+                    nx = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2)))
+                    # the factor of 0.866 makes sure the grid is square-ish
+                    ny = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) / 0.8660254))
+
+                    # here the spacing between grid centers is 1
+                    hg, _ = create_hex_grid(nx=nx, ny=ny, rotate_deg=uniform() * 360)
+
+                    # convert the spacing to right number of pixels
+                    # we also recenter the grid since it comes out centered at 0,0
+                    hg *= spacing
+                    hxpos = hg[:, 0].ravel()
+                    hypos = hg[:, 1].ravel()
+                    ndone = 0
+                    for hx, hy in zip(hxpos, hypos):
+                        offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                        offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                        hx += offset_x
+                        hy += offset_y
+                        if (
+                            hx > border
+                            and hx < L - border
+                            and hy > border
+                            and hy < L - border
+                        ):
+                            ndone += 1
+                            x_pos_list.append(hx)
+                            y_pos_list.append(hy)
+                            if ndone == nobjects:
+                                break
+
+                    assert ndone == nobjects, (
+                        "Hex grid was not big enough to hold all of the objects! "
+                        "Try decreasing output.grid_hex_spacing_fudge_factor to generate a denser grid!"
+                    )
+                else:
+                    logger.info(
+                        "generating gridded objects positions with dither %s",
+                        config.get("dither_scale", 0.5),
+                    )
+                    # in this case we want to use a grid of objects positions.
+                    # compute this grid in X,Y for the coadd,
+                    # then convert to world position
+                    nobj_per_row = int(np.ceil(np.sqrt(nobjects)))
+                    object_sep = width / nobj_per_row
+                    for i in range(nobjects):
+                        offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                        offset_y = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
+                        x_pos_list.append(
+                            (object_sep / 2. + object_sep * (i % nobj_per_row) + offset_x)
+                            + border)
+                        y_pos_list.append(
+                            (object_sep / 2. + object_sep * (i // nobj_per_row) + offset_y)
+                            + border
+                        )
                 coadd_wcs = tile_setup["coadd_wcs"]
                 world_pos_list = [
                     coadd_wcs.toWorld(galsim.PositionD(x, y))
@@ -841,7 +899,8 @@ class DESTileBuilder(OutputBuilder):
 
         ignore += ['tilename', 'bands', 'desrun', 'imsim_data', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
-                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'n_se_test']
+                   'rejectlist_file', 'dither_scale', 'coadd_wcs', 'n_se_test',
+                   'grid_border', 'grid_hex_spacing_fudge_factor']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
