@@ -730,9 +730,13 @@ class DESTileBuilder(OutputBuilder):
 
                     # convert the spacing to right number of pixels
                     # we also recenter the grid since it comes out centered at 0,0
+                    nprng = np.random.RandomState(seed=int(uniform()*100_000_000 + 1))
                     hg *= spacing
                     hxpos = hg[:, 0].ravel() + L/2
                     hypos = hg[:, 1].ravel() + L/2
+                    rinds = nprng.choice(hxpos.shape[0], size=hxpos.shape[0], replace=False).astype(int)
+                    hxpos = hxpos[rinds]
+                    hypos = hypos[rinds]
                     ndone = 0
                     for hx, hy in zip(hxpos, hypos):
                         offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
