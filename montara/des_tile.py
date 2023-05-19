@@ -708,11 +708,6 @@ class DESTileBuilder(OutputBuilder):
                 else:
                     border = 0  # 0 pixels
 
-                if "grid_hex_spacing_fudge_factor" in config:
-                    hex_fudge = galsim.config.ParseValue(config, 'grid_hex_spacing_fudge_factor', base, float)[0]
-                else:
-                    hex_fudge = 1.0
-
                 logger.info(
                     "generating gridded objects positions with dither %s and border %s",
                     config.get("dither_scale", 0.5), border,
@@ -725,10 +720,10 @@ class DESTileBuilder(OutputBuilder):
 
                 if config.get("grid_objects", False) == "hex":
 
-                    spacing = width / np.sqrt(nobjects) * hex_fudge
-                    nx = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2)))
+                    spacing = width / np.sqrt(nobjects)
+                    nx = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) * 2))
                     # the factor of 0.866 makes sure the grid is square-ish
-                    ny = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) / 0.8660254))
+                    ny = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) / 0.8660254 * 2))
 
                     # here the spacing between grid centers is 1
                     hg, _ = create_hex_grid(nx=nx, ny=ny, rotate_deg=uniform() * 360)
@@ -896,7 +891,7 @@ class DESTileBuilder(OutputBuilder):
         ignore += ['tilename', 'bands', 'desrun', 'imsim_data', 'noise_mode',
                    'add_bkg', 'noise_fac', 'mode', 'grid_objects',
                    'rejectlist_file', 'dither_scale', 'coadd_wcs', 'n_se_test',
-                   'grid_border', 'grid_hex_spacing_fudge_factor']
+                   'grid_border']
         ignore += ['file_name', 'dir']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
