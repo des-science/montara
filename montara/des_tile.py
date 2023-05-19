@@ -719,8 +719,8 @@ class DESTileBuilder(OutputBuilder):
                 uniform = galsim.UniformDeviate(first)
 
                 if config.get("grid_objects", False) == "hex":
-
-                    spacing = width / np.sqrt(nobjects)
+                    # fudge factor approximates the interobject spacing that best fills the tile
+                    spacing = width / np.sqrt(nobjects) * np.sqrt(1.15)
                     nx = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) * 2))
                     # the factor of 0.866 makes sure the grid is square-ish
                     ny = int(np.ceil(np.sqrt(nobjects) * np.sqrt(2) / 0.8660254 * 2))
@@ -734,9 +734,13 @@ class DESTileBuilder(OutputBuilder):
                     hg *= spacing
                     hxpos = hg[:, 0].ravel() + L/2
                     hypos = hg[:, 1].ravel() + L/2
+
+                    # we randomly sort the positions so we fill the grid at random instead of ordered
+                    # that way when we cut it down it doesn't have weird missing edges
                     rinds = nprng.choice(hxpos.shape[0], size=hxpos.shape[0], replace=False).astype(int)
                     hxpos = hxpos[rinds]
                     hypos = hypos[rinds]
+
                     ndone = 0
                     for hx, hy in zip(hxpos, hypos):
                         offset_x = 2 * (uniform() - 0.5) * config.get("dither_scale", 0.5)
