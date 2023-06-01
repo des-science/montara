@@ -286,12 +286,12 @@ class MontaraGalSimRunner(Step):
 
                 # if doing gridded objects, save the true position data
                 # to a fits file
-                self._write_truth(_tfiles, tilename, base_dir, stash)
+                self._write_truth(_tfiles, tilename, base_dir, stash, bands)
 
             # add tilenames to stash for later steps
             stash["tilenames"] = tilenames
 
-    def _write_truth(self, fnames, tilename, base_dir, stash):
+    def _write_truth(self, fnames, tilename, base_dir, stash, bands):
         data = []
         for fname in fnames:
             if os.path.getsize(fname):
@@ -304,17 +304,29 @@ class MontaraGalSimRunner(Step):
             )
 
         data = np.concatenate(data)
+        data = np.sort(data, order="id")
         uids, uinds = np.unique(data["id"], return_index=True)
         n_pos_data = len(uids)
-        _pos_data = np.zeros(n_pos_data, dtype=[
+        _pos_data = np.zeros(
+            n_pos_data,
+            dtype=[
                 ('ra', 'f8'), ('dec', 'f8'),
                 ('x', 'f8'), ('y', 'f8'),
-                ('id', 'i8')])
+                ('id', 'i8'),
+            ] + [(f"mag_{b}", "f8") for b in bands],
+        )
         _pos_data['id'] = data['id'][uinds]
         _pos_data['ra'] = data['ra'][uinds]
         _pos_data['dec'] = data['dec'][uinds]
         _pos_data['x'] = data['x_coadd'][uinds]
         _pos_data['y'] = data['y_coadd'][uinds]
+
+        for band in bands:
+            mskb = data["band"] == band
+            assert np.any(mskb)
+            bdata = data[mskb]
+            assert np.array_equal(_pos_data["id"], bdata["id"])
+            _pos_data[f"mag_{band}"] = bdata["mag"]
 
         # we'll stash this for later
         truepos_filename = os.path.join(
