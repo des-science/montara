@@ -228,7 +228,7 @@ class MontaraGalSimRunner(Step):
 
                 # if doing gridded objects, save the true position data
                 # to a fits file
-                self._write_truth(_tfiles, tilename, base_dir, stash)
+                self._write_truth(_tfiles, tilename, base_dir, stash, bands)
 
         elif mode == "coadd":
             for tilename in tilenames:
