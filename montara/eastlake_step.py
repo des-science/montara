@@ -330,8 +330,6 @@ class MontaraGalSimRunner(Step):
         _pos_data['y'] = data['y_coadd'][uinds]
         _pos_data = np.sort(_pos_data, order="id")
 
-        print(np.unique(data["band"]), flush=True)
-
         for band in bands:
             mskb = data["band"] == band
             assert np.any(mskb)
