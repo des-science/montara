@@ -292,10 +292,17 @@ class MontaraGalSimRunner(Step):
             stash["tilenames"] = tilenames
 
     def _write_truth(self, fnames, tilename, base_dir, stash, bands):
+        import pandas as pd
+
         data = []
         for fname in fnames:
             if os.path.getsize(fname):
-                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
+                df = pd.read_csv(fname, skiprows=[0], sep=r"\s+")
+                with open(fname, "w") as fp:
+                    h = fp.readline().strip().split()[1:]
+                df.columns = h
+                stringcols = df.select_dtypes(include='object').columns
+                _d = df.to_records(index=False, column_dtypes={c: "U" for c in stringcols})
                 data.append(_d)
 
         if len(data) == 0:
