@@ -321,7 +321,7 @@ class MontaraGalSimRunner(Step):
         _pos_data['x'] = data['x_coadd'][uinds]
         _pos_data['y'] = data['y_coadd'][uinds]
 
-        print(np.unique(data["bands"]), flush=True)
+        print(np.unique(data["band"]), flush=True)
 
         for band in bands:
             mskb = data["band"] == band
