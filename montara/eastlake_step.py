@@ -301,8 +301,11 @@ class MontaraGalSimRunner(Step):
                 with open(fname, "r") as fp:
                     h = fp.readline().strip().split()[1:]
                 df.columns = h
+                print(df)
                 stringcols = df.select_dtypes(include='object').columns
+                print(stringcols)
                 _d = df.to_records(index=False, column_dtypes={c: "U" for c in stringcols})
+                print(_d)
                 data.append(_d)
 
         if len(data) == 0:
