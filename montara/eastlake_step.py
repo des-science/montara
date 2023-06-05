@@ -302,9 +302,8 @@ class MontaraGalSimRunner(Step):
                     h = fp.readline().strip().split()[1:]
                 df.columns = h
                 stringcols = df.select_dtypes(include='object').columns
-                print(stringcols, {c: "U" for c in stringcols})
-                _d = df.to_records(index=False, column_dtypes={c: "U" for c in stringcols})
-                print(_d[0:2])
+                _d = df.to_records(index=False, column_dtypes={c: "U1" for c in stringcols})
+                self.logger.info("read truth file with dtype: %r", _d.dtype.descr)
                 data.append(_d)
 
         if len(data) == 0:
