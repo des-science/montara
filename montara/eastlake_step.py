@@ -298,7 +298,7 @@ class MontaraGalSimRunner(Step):
         for fname in fnames:
             if os.path.getsize(fname):
                 df = pd.read_csv(fname, skiprows=[0], sep=r"\s+")
-                with open(fname, "w") as fp:
+                with open(fname, "r") as fp:
                     h = fp.readline().strip().split()[1:]
                 df.columns = h
                 stringcols = df.select_dtypes(include='object').columns
