@@ -328,6 +328,7 @@ class MontaraGalSimRunner(Step):
         _pos_data['dec'] = data['dec'][uinds]
         _pos_data['x'] = data['x_coadd'][uinds]
         _pos_data['y'] = data['y_coadd'][uinds]
+        _pos_data = np.sort(_pos_data, order="id")
 
         print(np.unique(data["band"]), flush=True)
 
@@ -335,8 +336,10 @@ class MontaraGalSimRunner(Step):
             mskb = data["band"] == band
             assert np.any(mskb)
             bdata = data[mskb]
-            assert np.array_equal(_pos_data["id"], bdata["id"])
-            _pos_data[f"mag_{band}"] = bdata["mag"]
+            inds = np.searchsorted(_pos_data["id"], bdata["id"])
+            assert np.array_equal(_pos_data["id"][inds], bdata["id"])
+            _pos_data[f"mag_{band}"][:] = np.nan
+            _pos_data[f"mag_{band}"][inds] = bdata["mag"]
 
         # we'll stash this for later
         truepos_filename = os.path.join(
