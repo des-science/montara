@@ -228,7 +228,7 @@ class MontaraGalSimRunner(Step):
 
                 # if doing gridded objects, save the true position data
                 # to a fits file
-                self._write_truth(_tfiles, tilename, base_dir, stash)
+                self._write_truth(_tfiles, tilename, base_dir, stash, bands)
 
         elif mode == "coadd":
             for tilename in tilenames:
@@ -286,16 +286,24 @@ class MontaraGalSimRunner(Step):
 
                 # if doing gridded objects, save the true position data
                 # to a fits file
-                self._write_truth(_tfiles, tilename, base_dir, stash)
+                self._write_truth(_tfiles, tilename, base_dir, stash, bands)
 
             # add tilenames to stash for later steps
             stash["tilenames"] = tilenames
 
-    def _write_truth(self, fnames, tilename, base_dir, stash):
+    def _write_truth(self, fnames, tilename, base_dir, stash, bands):
+        import pandas as pd
+
         data = []
         for fname in fnames:
             if os.path.getsize(fname):
-                _d = np.atleast_1d(np.genfromtxt(fname, names=True))
+                df = pd.read_csv(fname, skiprows=[0], sep=r"\s+")
+                with open(fname, "r") as fp:
+                    h = fp.readline().strip().split()[1:]
+                df.columns = h
+                stringcols = df.select_dtypes(include='object').columns
+                _d = df.to_records(index=False, column_dtypes={c: "U1" for c in stringcols})
+                self.logger.info("read truth file with dtype: %r", _d.dtype.descr)
                 data.append(_d)
 
         if len(data) == 0:
@@ -304,17 +312,32 @@ class MontaraGalSimRunner(Step):
             )
 
         data = np.concatenate(data)
+        data = np.sort(data, order="id")
         uids, uinds = np.unique(data["id"], return_index=True)
         n_pos_data = len(uids)
-        _pos_data = np.zeros(n_pos_data, dtype=[
+        _pos_data = np.zeros(
+            n_pos_data,
+            dtype=[
                 ('ra', 'f8'), ('dec', 'f8'),
                 ('x', 'f8'), ('y', 'f8'),
-                ('id', 'i8')])
+                ('id', 'i8'),
+            ] + [(f"mag_{b}", "f8") for b in bands],
+        )
         _pos_data['id'] = data['id'][uinds]
         _pos_data['ra'] = data['ra'][uinds]
         _pos_data['dec'] = data['dec'][uinds]
         _pos_data['x'] = data['x_coadd'][uinds]
         _pos_data['y'] = data['y_coadd'][uinds]
+        _pos_data = np.sort(_pos_data, order="id")
+
+        for band in bands:
+            mskb = data["band"] == band
+            assert np.any(mskb)
+            bdata = data[mskb]
+            inds = np.searchsorted(_pos_data["id"], bdata["id"])
+            assert np.array_equal(_pos_data["id"][inds], bdata["id"])
+            _pos_data[f"mag_{band}"][:] = np.nan
+            _pos_data[f"mag_{band}"][inds] = bdata["mag"]
 
         # we'll stash this for later
         truepos_filename = os.path.join(

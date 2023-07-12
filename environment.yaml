@@ -6,6 +6,7 @@ dependencies:
   - fitsio
   - numpy
   - astropy
+  - pandas
   - des-eastlake
   - galsim_extra
   - importlib_metadata
