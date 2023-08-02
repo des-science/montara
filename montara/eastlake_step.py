@@ -294,10 +294,11 @@ class MontaraGalSimRunner(Step):
     def _write_truth(self, fnames, tilename, base_dir, stash, bands):
         import pandas as pd
 
+        dtype = None
         data = []
         for fname in fnames:
             if os.path.getsize(fname):
-                df = pd.read_csv(fname, skiprows=[0], sep=r"\s+")
+                df = pd.read_csv(fname, skiprows=[0], sep=r"\s+", index_col=False, header=None)
                 with open(fname, "r") as fp:
                     h = fp.readline().strip().split()[1:]
                 df.columns = h
@@ -305,6 +306,19 @@ class MontaraGalSimRunner(Step):
                 _d = df.to_records(index=False, column_dtypes={c: "U1" for c in stringcols})
                 self.logger.info("read truth file with dtype: %r", _d.dtype.descr)
                 data.append(_d)
+                if dtype is None:
+                    dtype = _d.dtype.descr
+                else:
+                    if _d.dtype.descr != dtype:
+                        raise RuntimeError(
+                            "truth file %r has inconsistent dtype!\nfile=%r\nshould be=%r" % (
+                                fname,
+                                _d.dtype.descr,
+                                dtype,
+                            )
+                        )
+            else:
+                self.logger.warning("skipped zero-length truth file %r", fname)
 
         if len(data) == 0:
             raise RuntimeError(
