@@ -28,5 +28,5 @@ def test_read_file(head, ndata):
             if ndata == 0:
                 assert d is None
             else:
-                assert d.dtype.descr == [("a", "i8"), ("b", "U1"), ("c", "f8")]
+                assert d.dtype.descr == [("a", "i8"), ("band", "U1"), ("c", "f8")]
                 assert d.shape[0] == ndata
