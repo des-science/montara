@@ -14,6 +14,39 @@ from eastlake.rejectlist import RejectList
 from eastlake.des_files import read_pizza_cutter_yaml
 
 
+def read_galsim_truth_file(fname):
+    """read a galsim truth file to a structured numpy array"""
+    import pandas as pd
+
+    if not os.path.getsize(fname):
+        return None
+
+    ncomment = 0
+    ndata = 0
+    with open(fname, "r") as fp:
+        lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if len(line) == 0 or line.startswith("#"):
+                ncomment += 1
+            else:
+                ndata += 1
+
+    if ndata > 0 and ncomment == 0:
+        raise RuntimeError("No header line found for truth file %r!" % fname)
+
+    if ndata == 0:
+        return None
+    else:
+        df = pd.read_csv(fname, skiprows=[0], sep=r"\s+", index_col=False, header=None)
+        with open(fname, "r") as fp:
+            h = fp.readline().strip().split()[1:]
+        df.columns = h
+        stringcols = df.select_dtypes(include='object').columns
+        _d = df.to_records(index=False, column_dtypes={c: "U1" for c in stringcols})
+        return _d
+
+
 class MontaraGalSimRunner(Step):
     """
     Pipeline step which runs galsim
@@ -292,18 +325,11 @@ class MontaraGalSimRunner(Step):
             stash["tilenames"] = tilenames
 
     def _write_truth(self, fnames, tilename, base_dir, stash, bands):
-        import pandas as pd
-
         dtype = None
         data = []
         for fname in fnames:
-            if os.path.getsize(fname):
-                df = pd.read_csv(fname, skiprows=[0], sep=r"\s+", index_col=False, header=None)
-                with open(fname, "r") as fp:
-                    h = fp.readline().strip().split()[1:]
-                df.columns = h
-                stringcols = df.select_dtypes(include='object').columns
-                _d = df.to_records(index=False, column_dtypes={c: "U1" for c in stringcols})
+            _d = read_galsim_truth_file(fname)
+            if _d is not None:
                 self.logger.info("read truth file with dtype: %r", _d.dtype.descr)
                 data.append(_d)
                 if dtype is None:
