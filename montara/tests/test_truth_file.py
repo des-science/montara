@@ -18,12 +18,15 @@ def test_read_file(head, ndata):
             for nd in range(ndata):
                 fp.write("%d %s %f\n" % (nd, letters[nd], nd*3.14159))
 
-        if not head and ndata == 0:
+        if not head and ndata > 0:
             with pytest.raises(RuntimeError) as e:
                 read_galsim_truth_file(fname)
 
             assert "No header line found for truth file" in str(e.value)
         else:
             d = read_galsim_truth_file(fname)
-            assert d.dtype.descr == [("a", "i8"), ("b", "U1"), ("c", "f8")]
-            assert d.shape[0] == ndata
+            if ndata == 0:
+                assert d is None
+            else:
+                assert d.dtype.descr == [("a", "i8"), ("b", "U1"), ("c", "f8")]
+                assert d.shape[0] == ndata
