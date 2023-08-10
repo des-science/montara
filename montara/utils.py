@@ -5,6 +5,15 @@ import os
 import numpy as np
 
 
+def safe_rm(pth, verbose=False):
+    try:
+        os.remove(pth)
+    except Exception as e:
+        if verbose:
+            print("removing file %s failed w/ error %r" % (pth, e))
+        pass
+
+
 def safe_mkdir(d):
     try:
         os.makedirs(d)
