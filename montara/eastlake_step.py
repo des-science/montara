@@ -9,7 +9,7 @@ import fitsio
 import eastlake
 
 from eastlake.step import Step
-from .utils import safe_mkdir, get_truth_from_image_file
+from .utils import safe_mkdir, get_truth_from_image_file, safe_rm
 from eastlake.rejectlist import RejectList
 from eastlake.des_files import read_pizza_cutter_yaml
 
@@ -352,7 +352,25 @@ class MontaraGalSimRunner(Step):
             )
 
         data = np.concatenate(data)
-        data = np.sort(data, order="id")
+        data = np.sort(data, order=["id", "band"])
+
+        # we'll stash this for later
+        truth_filename = os.path.join(
+            base_dir,
+            "truth_files",
+            "%s-truthfile.fits" % tilename,
+        )
+        safe_mkdir(os.path.dirname(truth_filename))
+        self.logger.error(
+            "writing truth data to %s" % truth_filename)
+        fitsio.write(truth_filename, data, clobber=True)
+        stash.set_filepaths("truth_file",
+                            truth_filename,
+                            tilename)
+        for fname in fnames:
+            safe_rm(fname)
+
+        # now combine by band to make true positions files
         uids, uinds = np.unique(data["id"], return_index=True)
         n_pos_data = len(uids)
         _pos_data = np.zeros(
