@@ -198,7 +198,20 @@ class MontaraGalSimRunner(Step):
             stash["rejectlist"] = rejectlist.rejectlist_data
 
         # Add the PSF config
-        stash["psf_config"] = config["psf"]
+        if config["output"].get("analyze_with_interpimage_psf", False):
+            import copy
+            _psf, safe = galsim.config.BuildGSObject({'blah': copy.deepcopy(config["psf"])}, 'blah')
+            assert safe, "PSF model must be reusable (safe) to use as an InterpolatedImage"
+            _psf = _psf.withFlux(1.0).drawImage(nx=25, ny=25, scale=0.263)
+            _psf = galsim.InterpolatedImage(_psf, x_interpolant='lanczos15')
+            with np.printoptions(threshold=np.inf, precision=32):
+                _psf = repr(_psf)
+            stash["psf_config"] = {
+                "type": "Eval",
+                "str": _psf.replace("array(", "np.array("),
+            }
+        else:
+            stash["psf_config"] = config["psf"]
         # add draw_method if present
         if "draw_method" in config["stamp"]:
             stash["draw_method"] = config["stamp"]["draw_method"]
