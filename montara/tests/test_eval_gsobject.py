@@ -11,5 +11,6 @@ def test_build_gsobject_evalrepr():
         "type": "Eval",
         "str": r.replace("array(", "np.array("),
     }
-    rii = galsim.config.BuildGSObject({'blah': cfg}, 'blah')
+    rii, safe = galsim.config.BuildGSObject({'blah': cfg}, 'blah')
+    assert safe
     assert rii == ii
