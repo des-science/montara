@@ -901,6 +901,7 @@ class DESTileBuilder(OutputBuilder):
                    'rejectlist_file', 'dither_scale', 'coadd_wcs', 'n_se_test',
                    'grid_border']
         ignore += ['file_name', 'dir']
+        ignore += ['analyze_with_interpimage_psf']
         logger.debug("current mag_zp: %f" % base["eval_variables"]["fmag_zp"])
 
         # We are making sure to call the OutputBuilder from galsim
