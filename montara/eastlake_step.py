@@ -203,6 +203,17 @@ class MontaraGalSimRunner(Step):
             _psf, safe = galsim.config.BuildGSObject({'blah': copy.deepcopy(config["psf"])}, 'blah')
             assert safe, "PSF model must be reusable (safe) to use as an InterpolatedImage"
             _psf = _psf.withFlux(1.0).drawImage(nx=25, ny=25, scale=0.263)
+
+            if config["output"].get("analyze_with_interpimage_psf_s2n", None) is not None:
+                nse = (
+                    np.sum(_psf.array)
+                    / config["output"]["analyze_with_interpimage_psf_s2n"]
+                    / np.sqrt(np.prod(_psf.array.shape))
+                )
+                rng = np.random.RandomState(stash["step_primary_seed"])
+                _psf_arr = _psf.array + rng.normal(scale=nse, size=_psf.array.shape)
+                _psf = galsim.Image(_psf_arr, scale=_psf.scale)
+
             _psf = galsim.InterpolatedImage(_psf, x_interpolant='lanczos15')
             with np.printoptions(threshold=np.inf, precision=32):
                 _psf = repr(_psf)
