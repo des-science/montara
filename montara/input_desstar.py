@@ -12,7 +12,7 @@ class DESStarCatalog(object):
     _single_params = []
     _takes_rng = False
 
-    def __init__(self, file_name, mag_i_col='imag', mag_i_max=None, mag_i_min=None,
+    def __init__(self, file_name, mag_i_col='mag_i', mag_i_max=None, mag_i_min=None,
                  _nobjects_only=False):
         # Read in fits star catalog and apply cuts if necessary
         self.star_data = fitsio.read(file_name)
