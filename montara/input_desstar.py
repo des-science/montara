@@ -8,11 +8,11 @@ from .utils import add_field
 
 class DESStarCatalog(object):
     _req_params = {'file_name': str}
-    _opt_params = {'mag_i_max': float, 'mag_i_min': float}
+    _opt_params = {'mag_i_col': str, 'mag_i_max': float, 'mag_i_min': float}
     _single_params = []
     _takes_rng = False
 
-    def __init__(self, file_name, mag_i_max=None, mag_i_min=None,
+    def __init__(self, file_name, mag_i_col='mag_i', mag_i_max=None, mag_i_min=None,
                  _nobjects_only=False):
         # Read in fits star catalog and apply cuts if necessary
         self.star_data = fitsio.read(file_name)
@@ -22,9 +22,9 @@ class DESStarCatalog(object):
         # optionally apply an i-band magnitude cut
         use = np.ones(len(self.star_data), dtype=bool)
         if mag_i_max is not None:
-            use[self.star_data['mag_i'] > mag_i_max] = False
+            use[self.star_data[mag_i_col] > mag_i_max] = False
         if mag_i_min is not None:
-            use[self.star_data['mag_i'] < mag_i_min] = False
+            use[self.star_data[mag_i_col] < mag_i_min] = False
         self.star_data = self.star_data[use]
         self.nobjects = len(self.star_data)
 
