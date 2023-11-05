@@ -553,10 +553,8 @@ class DESTileBuilder(OutputBuilder):
                     key = 'desstar'
                     field = base['input'][key]
                     loader = galsim.config.input.valid_input_types[key]
-                    if (key in base['_input_objs'] and
-                            base['_input_objs']['desstar' + '_safe'][0]):
-                        star_input = base["_input_objs"][key][0]
-                    else:
+                    star_input = galsim.config.GetInputObj("desstar", config, base, "desstar")
+                    if star_input is None:
                         kwargs, safe = loader.getKwargs(field, base, logger)
                         kwargs['_nobjects_only'] = True
                         star_input = loader.init_func(**kwargs)
