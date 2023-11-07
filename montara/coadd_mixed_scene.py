@@ -1,6 +1,6 @@
-import galsim
-import numpy as np
 import coord
+import galsim
+
 
 class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
     """
@@ -50,7 +50,7 @@ class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
                 # This shouldn't happen, but maybe possible from rounding errors.  Use the last one.
                 obj_type = list(objects.keys())[-1]
                 obj_type_index -= 1
-                logger.error("Error in CoaddMixedScene.  Didn't pick an object to use.  Using %s",obj_type)
+                logger.error("Error in CoaddMixedScene.  Didn't pick an object to use.  Using %s", obj_type)
 
         # Save this in the dict so it can be used by e.g. the truth catalog or to do something
         # different depending on which kind of object we have.
@@ -63,7 +63,10 @@ class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
         # object ends up being chosen.
         ignore = ignore + ['objects', 'magnify', 'shear', 'obj_type', 'shear_scene']
 
-        stamp_xsize, stamp_ysize, image_pos, world_pos = super(CoaddMixedSceneBuilder, self).setup(config,base,xsize,ysize,ignore,logger)
+        stamp_xsize, stamp_ysize, image_pos, world_pos = super(
+            CoaddMixedSceneBuilder,
+            self
+        ).setup(config, base, xsize, ysize, ignore, logger)
 
         if 'shear_scene' in config:
             shear_scene = galsim.config.ParseValue(config, 'shear_scene', base, bool)[0]
@@ -73,7 +76,7 @@ class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
         # option to shear the full scene.
         if shear_scene:
             shear = galsim.config.ParseValue(config, 'shear', base, galsim.Shear)[0]
-            # Find the center (tangent point) of the scene in RA, DEC. 
+            # Find the center (tangent point) of the scene in RA, DEC.
             scene_center = base["coadd_wcs"].center
             wcs = base['wcs']
             # world_pos might not be defined yet, so if necessary get it from image_pos.
@@ -107,7 +110,7 @@ class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
 
         if psf:
             if obj:
-                return galsim.Convolve(obj,psf)
+                return galsim.Convolve(obj, psf)
             else:
                 return psf
         else:
@@ -115,5 +118,6 @@ class CoaddMixedSceneBuilder(galsim.config.StampBuilder):
                 return obj
             else:
                 return None
+
 
 galsim.config.stamp.RegisterStampType('CoaddMixedScene', CoaddMixedSceneBuilder())
