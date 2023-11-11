@@ -9,6 +9,7 @@ except PackageNotFoundError:
     # package is not installed
     pass
 
+from . import coadd_mixed_scene  # noqa
 from . import des_tile  # noqa
 from . import input_desstar  # noqa
 from . import catalogsampler  # noqa
