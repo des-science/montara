@@ -470,7 +470,7 @@ class DESTileBuilder(OutputBuilder):
 
             # make sure the draw method is correct for PSFEx
             assert base['stamp']['draw_method'] == 'no_pixel'
-        elif base["psf"]["type"] == "DES_Piff":
+        elif base["psf"]["type"] in ["DES_Piff", "DES_SmoothPiff"]:
             output_piff_path = os.path.join(
                 base["base_dir"],
                 os.path.relpath(orig_piff_path, imsim_data),
@@ -481,7 +481,7 @@ class DESTileBuilder(OutputBuilder):
             shutil.copyfile(orig_piff_path, output_piff_path)
 
             # make sure the draw method is correct for Piff
-            if base["psf"].get("depixelize", False):
+            if base["psf"].get("depixelize", False) or base["psf"]["type"] == "DES_SmoothPiff":
                 assert base['stamp']['draw_method'] == 'auto'
             else:
                 assert base['stamp']['draw_method'] == 'no_pixel'
