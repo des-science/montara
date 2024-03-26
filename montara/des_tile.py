@@ -628,7 +628,7 @@ class DESTileBuilder(OutputBuilder):
                 base['image'], 'random_seed', base, int)[0]
 
             # launder through the RNG to randomize
-                first = galsim.BaseDeviate(first).raw()
+            first = galsim.BaseDeviate(first).raw()
 
             base['image']['random_seed'] = []
             # The first one is the original random_seed specification,
