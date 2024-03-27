@@ -626,6 +626,10 @@ class DESTileBuilder(OutputBuilder):
         if not isinstance(rs, list):
             first = galsim.config.ParseValue(
                 base['image'], 'random_seed', base, int)[0]
+
+            # launder through the RNG to randomize
+            first = galsim.BaseDeviate(first).raw()
+
             base['image']['random_seed'] = []
             # The first one is the original random_seed specification,
             # used for noise, since that should be different for each band,
