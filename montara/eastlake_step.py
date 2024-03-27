@@ -414,12 +414,14 @@ class MontaraGalSimRunner(Step):
 
         for band in bands:
             mskb = data["band"] == band
-            assert np.any(mskb)
-            bdata = data[mskb]
-            inds = np.searchsorted(_pos_data["id"], bdata["id"])
-            assert np.array_equal(_pos_data["id"][inds], bdata["id"])
-            _pos_data[f"mag_{band}"][:] = np.nan
-            _pos_data[f"mag_{band}"][inds] = bdata["mag"]
+            if self.config["output"].get("n_se_test", None) is None:
+                assert np.any(mskb)
+            if np.any(mskb):
+                bdata = data[mskb]
+                inds = np.searchsorted(_pos_data["id"], bdata["id"])
+                assert np.array_equal(_pos_data["id"][inds], bdata["id"])
+                _pos_data[f"mag_{band}"][:] = np.nan
+                _pos_data[f"mag_{band}"][inds] = bdata["mag"]
 
         # we'll stash this for later
         truepos_filename = os.path.join(
