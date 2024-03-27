@@ -370,72 +370,73 @@ class MontaraGalSimRunner(Step):
             else:
                 self.logger.warning("skipped zero-length truth file %r", fname)
 
-        if len(data) == 0:
+        if len(data) == 0 and self.config["output"].get("n_se_test", None) is None:
             raise RuntimeError(
                 "No objects drawn for tile %s when using a grid!" % tilename
             )
 
-        data = np.concatenate(data)
-        data = np.sort(data, order=["id", "band"])
+        if len(data) > 0:
+            data = np.concatenate(data)
+            data = np.sort(data, order=["id", "band"])
 
-        # we'll stash this for later
-        truth_filename = os.path.join(
-            base_dir,
-            "truth_files",
-            "%s-truthfile.fits" % tilename,
-        )
-        safe_mkdir(os.path.dirname(truth_filename))
-        self.logger.error(
-            "writing truth data to %s" % truth_filename)
-        fitsio.write(truth_filename, data, clobber=True)
-        stash.set_filepaths("truth_file",
-                            truth_filename,
-                            tilename)
-        for fname in fnames:
-            safe_rm(fname)
+            # we'll stash this for later
+            truth_filename = os.path.join(
+                base_dir,
+                "truth_files",
+                "%s-truthfile.fits" % tilename,
+            )
+            safe_mkdir(os.path.dirname(truth_filename))
+            self.logger.error(
+                "writing truth data to %s" % truth_filename)
+            fitsio.write(truth_filename, data, clobber=True)
+            stash.set_filepaths("truth_file",
+                                truth_filename,
+                                tilename)
+            for fname in fnames:
+                safe_rm(fname)
 
-        # now combine by band to make true positions files
-        uids, uinds = np.unique(data["id"], return_index=True)
-        n_pos_data = len(uids)
-        _pos_data = np.zeros(
-            n_pos_data,
-            dtype=[
-                ('ra', 'f8'), ('dec', 'f8'),
-                ('x', 'f8'), ('y', 'f8'),
-                ('id', 'i8'),
-            ] + [(f"mag_{b}", "f8") for b in bands],
-        )
-        _pos_data['id'] = data['id'][uinds]
-        _pos_data['ra'] = data['ra'][uinds]
-        _pos_data['dec'] = data['dec'][uinds]
-        _pos_data['x'] = data['x_coadd'][uinds]
-        _pos_data['y'] = data['y_coadd'][uinds]
-        _pos_data = np.sort(_pos_data, order="id")
+            # now combine by band to make true positions files
+            uids, uinds = np.unique(data["id"], return_index=True)
+            n_pos_data = len(uids)
+            _pos_data = np.zeros(
+                n_pos_data,
+                dtype=[
+                    ('ra', 'f8'), ('dec', 'f8'),
+                    ('x', 'f8'), ('y', 'f8'),
+                    ('id', 'i8'),
+                ] + [(f"mag_{b}", "f8") for b in bands],
+            )
+            _pos_data['id'] = data['id'][uinds]
+            _pos_data['ra'] = data['ra'][uinds]
+            _pos_data['dec'] = data['dec'][uinds]
+            _pos_data['x'] = data['x_coadd'][uinds]
+            _pos_data['y'] = data['y_coadd'][uinds]
+            _pos_data = np.sort(_pos_data, order="id")
 
-        for band in bands:
-            mskb = data["band"] == band
-            if self.config["output"].get("n_se_test", None) is None:
-                assert np.any(mskb)
-            if np.any(mskb):
-                bdata = data[mskb]
-                inds = np.searchsorted(_pos_data["id"], bdata["id"])
-                assert np.array_equal(_pos_data["id"][inds], bdata["id"])
-                _pos_data[f"mag_{band}"][:] = np.nan
-                _pos_data[f"mag_{band}"][inds] = bdata["mag"]
+            for band in bands:
+                mskb = data["band"] == band
+                if self.config["output"].get("n_se_test", None) is None:
+                    assert np.any(mskb)
+                if np.any(mskb):
+                    bdata = data[mskb]
+                    inds = np.searchsorted(_pos_data["id"], bdata["id"])
+                    assert np.array_equal(_pos_data["id"][inds], bdata["id"])
+                    _pos_data[f"mag_{band}"][:] = np.nan
+                    _pos_data[f"mag_{band}"][inds] = bdata["mag"]
 
-        # we'll stash this for later
-        truepos_filename = os.path.join(
-            base_dir,
-            "true_positions",
-            "%s-truepositions.fits" % tilename,
-        )
-        safe_mkdir(os.path.dirname(truepos_filename))
-        self.logger.error(
-            "writing true position data to %s" % truepos_filename)
-        fitsio.write(truepos_filename, _pos_data, clobber=True)
-        stash.set_filepaths("truepositions_file",
-                            truepos_filename,
-                            tilename)
+            # we'll stash this for later
+            truepos_filename = os.path.join(
+                base_dir,
+                "true_positions",
+                "%s-truepositions.fits" % tilename,
+            )
+            safe_mkdir(os.path.dirname(truepos_filename))
+            self.logger.error(
+                "writing true position data to %s" % truepos_filename)
+            fitsio.write(truepos_filename, _pos_data, clobber=True)
+            stash.set_filepaths("truepositions_file",
+                                truepos_filename,
+                                tilename)
 
     @classmethod
     def from_config_file(cls, config_file, logger=None):
