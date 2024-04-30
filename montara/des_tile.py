@@ -149,6 +149,23 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
         return var
 
 
+def _set_catalog_sampler_rng_num(cfg, rng_num):
+    "recursive function to set rng_num for catalog sampler"
+    if isinstance(cfg, dict):
+        for k in list(cfg.keys()):
+            if isinstance(cfg[k], dict):
+                cfg[k] = _set_catalog_sampler_rng_num(cfg[k], rng_num)
+
+        if cfg.get("type", None) == "catalog_sampler_value":
+            cfg["rng_num"] = rng_num
+
+    elif isinstance(cfg, list):
+        for i in range(len(cfg)):
+            cfg[i] = _set_catalog_sampler_rng_num(cfg[i], rng_num)
+
+    return cfg
+
+
 class DESTileBuilder(OutputBuilder):
     """Implements the DESTile custom output type.
 
@@ -684,6 +701,8 @@ class DESTileBuilder(OutputBuilder):
                 base['image']['image_pos']['rng_num'] = 1
             if 'world_pos' in base['image']:
                 base['image']['world_pos']['rng_num'] = 1
+            if "truth" in base["output"]:
+                base["output"]["truth"] = _set_catalog_sampler_rng_num(base["output"]["truth"], 1)
 
         logger.debug(
             'random_seed = %s',

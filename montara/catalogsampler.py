@@ -64,7 +64,7 @@ class CatalogSampler(object):
         index = rand.randint(0, len(self.catalog_data))
         if self.replace is False:
             self.catalog_data = np.delete(self.catalog_data, index)
-        return self.catalog_data[index], self.dtype
+        return self.catalog_data[index], self.dtype, index
 
 
 class CatalogSamplerLoader(InputLoader):
@@ -117,11 +117,27 @@ def CatalogRow(config, base, name):
         catalog_sampler = galsim.config.GetInputObj(
             'catalog_sampler', config, base, name,
         )
-        catalog_row_data, dtype = catalog_sampler.sample(rng)
+        catalog_row_data, dtype, catalog_row_index = catalog_sampler.sample(rng)
         colnames = dtype.names
+        base['_catalog_row_data_catalog_row_ind'] = catalog_row_index
         base['_catalog_row_data'] = catalog_row_data
         base['_catalog_sampler_index'] = index
         base['_catalog_colnames'] = colnames
+        base['_catalog_used_rngnum'] = config.get("rng_num", None)
+        print(
+            "\n\n\n sampling catalog row info:",
+            index,
+            index_key,
+            base['_catalog_row_data_catalog_row_ind'],
+            config.get("rng_num", None),
+            "\n\n\n",
+            flush=True,
+        )
+    else:
+        if base['_catalog_used_rngnum'] != config.get("rng_num", None):
+            raise ValueError("Catalog sampler rng num changed from %s to %s!" % (
+                base['_catalog_used_rngnum'], config.get("rng_num", None)
+            ))
 
     return base['_catalog_row_data'], base['_catalog_colnames']
 
