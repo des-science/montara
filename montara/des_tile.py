@@ -674,8 +674,10 @@ class DESTileBuilder(OutputBuilder):
                 base['gal']['rng_num'] = 1
             if 'star' in base:
                 base['star']['rng_num'] = 1
-            if 'psf' in base:
-                base['psf']['rng_num'] = 1
+            if base["psf"]["type"] in ["DES_Piff", "DES_SmoothPiff"]:
+                for _key in ["gi_color", "iz_color"]:
+                    if _key in base["psf"] and base["psf"][_key] is not None:
+                        base['psf'][_key]['rng_num'] = 1
             if 'stamp' in base:
                 base['stamp']['rng_num'] = 1
             if 'image_pos' in base['image']:
