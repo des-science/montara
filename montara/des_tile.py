@@ -106,11 +106,11 @@ class ChipNoiseBuilder(galsim.config.NoiseBuilder):
             if params["_zero_bkg"]:
                 assert bkg_image.array.mean() == 0, "bkg not zero when it should be!"
 
-            logger.error("adding bkg with mean %.2e from file %s" % (
+            logger.debug("adding bkg with mean %.2e from file %s" % (
                 (bkg_image.array).mean(), params["bkg_filename"]))
             im += bkg_image
         else:
-            logger.error("no bkg added")
+            logger.debug("no bkg added")
 
     def getBkg(self, config, base):
         params, safe = galsim.config.GetAllParams(
@@ -311,9 +311,9 @@ class DESTileBuilder(OutputBuilder):
                 ]
                 for i, is_rejectlisted in enumerate(is_rejectlisted_list):
                     if is_rejectlisted:
-                        logger.info("PSF for output file %s is rejectlisted" % (
+                        logger.debug("PSF for output file %s is rejectlisted" % (
                             output_file_names[i]))
-                    logger.info(
+                    logger.debug(
                         "%d/%d piff files for tile %s rejectlisted" % (
                             is_rejectlisted_list.count(True),
                             len(is_rejectlisted_list),
@@ -388,11 +388,11 @@ class DESTileBuilder(OutputBuilder):
         base["eval_variables"]["fcoadd_ra_max_deg"] = tile_setup["coadd_ra_ranges_deg"][1]
         base["eval_variables"]["fcoadd_dec_min_deg"] = tile_setup["coadd_dec_ranges_deg"][0]
         base["eval_variables"]["fcoadd_dec_max_deg"] = tile_setup["coadd_dec_ranges_deg"][1]
-        logger.info(
+        logger.debug(
             "ra min/max for tile %s: %f,%f degrees" % (
                 tilename, base["eval_variables"]["fra_min_deg"],
                 base["eval_variables"]["fra_max_deg"]))
-        logger.info(
+        logger.debug(
             "dec min/max for tile %s: %f,%f degrees" % (
                 tilename, base["eval_variables"]["fdec_min_deg"],
                 base["eval_variables"]["fdec_max_deg"]))
@@ -560,7 +560,7 @@ class DESTileBuilder(OutputBuilder):
                     base['rng'] = galsim.BaseDeviate(seed)
                     ngalaxies = galsim.config.ParseValue(nobjects, 'ngalaxies',
                                                          base, int)[0]
-                    logger.error("simulating %d galaxies" % ngalaxies)
+                    logger.debug("simulating %d galaxies" % ngalaxies)
                 if nobjects.get("use_all_stars", True):
                     # Now the stars. In this case
                     # use all the stars in the star input catalog. We need
@@ -584,7 +584,7 @@ class DESTileBuilder(OutputBuilder):
                     # If use_all_stars is False, and nstars is not specified, then
                     # set nstars to zero. No stars for you.
                     nstars = 0
-                logger.error("simulating %d stars" % nstars)
+                logger.debug("simulating %d stars" % nstars)
                 nobj = nstars + ngalaxies
                 # Save an object_type_list as a base_eval_variable, this can be used
                 # with MixedScene to specify whether to draw a galaxy or star.
@@ -624,7 +624,7 @@ class DESTileBuilder(OutputBuilder):
             logger.critical("found non-integer nobj:", nobj)
             raise e
         base['image']['nobjects'] = nobj
-        logger.info(
+        logger.debug(
             'nobjects = %s',
             galsim.config.CleanConfig(base['image']['nobjects']))
 
@@ -733,7 +733,7 @@ class DESTileBuilder(OutputBuilder):
                 else:
                     border = 0  # 0 pixels
 
-                logger.info(
+                logger.debug(
                     "generating gridded objects positions with dither %s and border %s",
                     config.get("dither_scale", 0.5), border,
                 )

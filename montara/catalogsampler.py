@@ -18,7 +18,7 @@ class CatalogSampler(object):
     # pickle problems.
     _takes_rng = True
 
-    def __init__(self, file_name, cuts=None, rng=None, replace=True, verbose=False, logger=None):
+    def __init__(self, file_name, cuts=None, rng=None, replace=True, verbose=False):
         # Read in data
         self.catalog_data = fitsio.read(file_name)
         catalog_row_inds = np.arange(len(self.catalog_data))
@@ -31,7 +31,6 @@ class CatalogSampler(object):
             self.apply_cuts(cuts, verbose=verbose)
         self.replace = replace
         self.verbose = verbose
-        self.logger = logger
 
     def apply_cuts(self, cuts, verbose=False):
         """cuts is a dictionary. A key should be the same as a column in
@@ -109,8 +108,6 @@ class CatalogSamplerLoader(InputLoader):
         if "cuts" in config:
             kwargs["cuts"] = config["cuts"]
 
-        kwargs['logger'] = logger
-
         return kwargs, safe
 
 
@@ -128,15 +125,18 @@ def CatalogRow(config, base, name):
         base['_catalog_sampler_index'] = index
         base['_catalog_colnames'] = colnames
         base['_catalog_used_rngnum'] = config.get("rng_num", None)
-        if catalog_sampler.logger is not None:
-            catalog_sampler.logger.warning(
-                "sampling catalog row info: %s %s %s %s %s",
+
+        # FIXME
+        print(
+            "sampling catalog row info: %s %s %s %s %s" % (
                 index,
                 index_key,
                 base['_catalog_row_data_catalog_row_ind'],
                 config.get("rng_num", None),
                 "\n\n\n",
-            )
+            ),
+            flush=True,
+        )
     else:
         if base['_catalog_used_rngnum'] != config.get("rng_num", None):
             raise ValueError("Catalog sampler rng num changed from %s to %s!" % (
