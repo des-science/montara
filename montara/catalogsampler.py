@@ -125,23 +125,21 @@ def CatalogRow(config, base, name):
         base['_catalog_sampler_index'] = index
         base['_catalog_colnames'] = colnames
         base['_catalog_used_rngnum'] = config.get("rng_num", None)
-
-        # FIXME
-        print(
-            "sampling catalog row info: %s %s %s %s %s" % (
-                index,
-                index_key,
-                base['_catalog_row_data_catalog_row_ind'],
-                config.get("rng_num", None),
-                "\n\n\n",
-            ),
-            flush=True,
-        )
     else:
         if base['_catalog_used_rngnum'] != config.get("rng_num", None):
             raise ValueError("Catalog sampler rng num changed from %s to %s!" % (
                 base['_catalog_used_rngnum'], config.get("rng_num", None)
             ))
+
+    print(
+        "sampling catalog row info: %s %s %s %s" % (
+            index,
+            index_key,
+            base['_catalog_row_data_catalog_row_ind'],
+            config.get("rng_num", None),
+        ),
+        flush=True,
+    )
 
     return base['_catalog_row_data'], base['_catalog_colnames']
 
