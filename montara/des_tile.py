@@ -154,8 +154,7 @@ def _set_catalog_sampler_rng_num(cfg, rng_num):
     "recursive function to set rng_num for catalog sampler"
     if isinstance(cfg, dict):
         for k in list(cfg.keys()):
-            if isinstance(cfg[k], dict):
-                cfg[k] = _set_catalog_sampler_rng_num(cfg[k], rng_num)
+            cfg[k] = _set_catalog_sampler_rng_num(cfg[k], rng_num)
 
         if cfg.get("type", None) == "catalog_sampler_value":
             cfg["rng_num"] = rng_num
