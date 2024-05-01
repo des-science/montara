@@ -5,6 +5,10 @@ import fitsio
 
 from .utils import add_field
 
+import logging
+
+logger = logging.getLogger("pipeline")
+
 
 class CatalogSampler(object):
     """class for randomly sampling object properties from a catalog"""
@@ -131,22 +135,22 @@ def CatalogRow(config, base, name):
                 base['_catalog_used_rngnum'], config.get("rng_num", None)
             ))
 
-    print(
-        "sampling catalog row info: %s %s %s %s" % (
-            index,
-            index_key,
-            base['_catalog_row_data_catalog_row_ind'],
-            config.get("rng_num", None),
-        ),
-        flush=True,
-    )
-
     return base['_catalog_row_data'], base['_catalog_colnames']
 
 
 def CatalogValue(config, base, value_type):
     row_data, colnames = CatalogRow(config, base, value_type)
     col = galsim.config.ParseValue(config, 'col', base, str)[0]
+
+    logger.log(
+        logging.DEBUG,
+        " sampling gal catalog band|index|col: %s %s %s" % (
+            base["eval_variables"]["sband"],
+            base['_catalog_row_data_catalog_row_ind'],
+            col,
+        ),
+    )
+
     try:
         return float(row_data[colnames.index(col)])
     except ValueError as e:

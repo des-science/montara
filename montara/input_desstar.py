@@ -5,6 +5,10 @@ from galsim.config.value import RegisterValueType
 import fitsio
 from .utils import add_field
 
+import logging
+
+logger = logging.getLogger("pipeline")
+
 
 class DESStarCatalog(object):
     _req_params = {'file_name': str}
@@ -51,6 +55,16 @@ def _GenerateFromStarCatalog(config, base, value_type):
     kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
     col = kwargs['col']
     index = kwargs['index']
+
+    logger.log(
+        logging.DEBUG,
+        "sampling star catalog band|index|col: %s %s %s" % (
+            base["eval_variables"]["sband"],
+            index,
+            col,
+        ),
+    )
+
     val = star_input.get(index, col)
     return val, safe
 

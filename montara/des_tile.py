@@ -2,6 +2,7 @@ import os
 import shutil
 from collections import OrderedDict
 import subprocess
+import logging
 
 import fitsio
 import galsim
@@ -560,7 +561,8 @@ class DESTileBuilder(OutputBuilder):
                     base['rng'] = galsim.BaseDeviate(seed)
                     ngalaxies = galsim.config.ParseValue(nobjects, 'ngalaxies',
                                                          base, int)[0]
-                    logger.debug("simulating %d galaxies" % ngalaxies)
+                logger.log(logging.CRITICAL, "simulating %d galaxies" % ngalaxies)
+
                 if nobjects.get("use_all_stars", True):
                     # Now the stars. In this case
                     # use all the stars in the star input catalog. We need
@@ -584,7 +586,8 @@ class DESTileBuilder(OutputBuilder):
                     # If use_all_stars is False, and nstars is not specified, then
                     # set nstars to zero. No stars for you.
                     nstars = 0
-                logger.debug("simulating %d stars" % nstars)
+                logger.log(logging.CRITICAL, "simulating %d stars" % nstars)
+
                 nobj = nstars + ngalaxies
                 # Save an object_type_list as a base_eval_variable, this can be used
                 # with MixedScene to specify whether to draw a galaxy or star.
@@ -692,9 +695,7 @@ class DESTileBuilder(OutputBuilder):
             if 'star' in base:
                 base['star']['rng_num'] = 1
             if base["psf"]["type"] in ["DES_Piff", "DES_SmoothPiff"]:
-                for _key in ["gi_color", "iz_color"]:
-                    if _key in base["psf"] and base["psf"][_key] is not None:
-                        base['psf'][_key]['rng_num'] = 1
+                base["psf"] = _set_catalog_sampler_rng_num(base["psf"], 1)
             if 'stamp' in base:
                 base['stamp']['rng_num'] = 1
             if 'image_pos' in base['image']:
