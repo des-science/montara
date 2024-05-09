@@ -32,7 +32,7 @@ jobs:
       - name: configure conda and install code
         shell: bash -l {0}
         run: |
-          mamba install pytest flake8
+          mamba install pytest ruff
           python -m pip install -e .
 
       - name: check cli
