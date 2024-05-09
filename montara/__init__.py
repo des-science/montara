@@ -20,3 +20,4 @@ from . import mixed_scene_postop  # noqa
 from . import badpixfromfits  # noqa
 from . import eastlake_step  # noqa
 from . import eval_gsobject  # noqa
+from . import input_desgal  # noqa

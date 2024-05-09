@@ -8,6 +8,7 @@ dependencies:
   - astropy
   - pandas
   - des-eastlake
+  - des-y6utils
   - galsim_extra
   - importlib_metadata
   - cfitsio  # for fpack
