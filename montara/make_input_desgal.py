@@ -1,13 +1,18 @@
 from contextlib import contextmanager
+import glob
 import time
 import sys
 
+import click
+import esutil
 import numpy as np
+import fitsio
 import galsim as gs
 import hpgeom
 from scipy.spatial import KDTree
 from esutil.pbar import PBar
 
+from des_y6utls.mdet import _read_hsp_file, _compute_dered_flux_fac
 
 GLOBAL_START_TIME = time.time()
 
@@ -45,10 +50,7 @@ def timer(name, silent=False):
         )
 
 
-def match_cosmos_to_cardinal(cosmos, cardinal, max_dz=0.1, max_di=0.5, max_dgmi=0.5, rng=None):
-    if not isinstance(rng, np.random.RandomState):
-        rng = np.random.RandomState(seed=rng)
-
+def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng):
     with timer("making catalogs"):
         # we cut the cosmos redshift range to match cardinal
         match_inds = np.zeros(len(cosmos), dtype=int) - 1
@@ -309,15 +311,172 @@ def sample_from_pixel(nside, pix, size=None, nest=True, rng=None):
         return np.reshape(ra, size), np.reshape(dec, size)
 
 
-def make_input_cosmos_cat():
+def _get_tile_bounds_at_point(cen_ra, cen_dec, buff=0):
+    # build the DES-style coadd WCS at center ra,dec
+    aft = gs.AffineTransform(
+        -0.263,
+        0.0,
+        0.0,
+        0.263,
+        origin=gs.PositionD(5000.5, 5000.5),
+    )
+    cen = gs.CelestialCoord(ra=cen_ra * gs.degrees, dec=cen_dec * gs.degrees)
+    wcs = gs.TanWCS(aft, cen, units=gs.arcsec)
 
-    # cmsk = (
-    #     (cosmos["mag_i"] > 15)
-    #     & (cosmos["mag_i"] <= 25)
-    #     & (cosmos["isgal"] == 1)
-    #     & (cosmos["mask_flags"] == 0)
-    #     & (cosmos["bdf_hlr"] > 0)
-    #     & (cosmos["bdf_hlr"] <= 5)
-    # )
-    # cosmos = cosmos[cmsk]
-    pass
+    xv = np.array([1 - buff, 1 - buff, 10000 + buff, 10000 + buff])
+    yv = np.array([1 - buff, 10000 + buff, 10000 + buff, 1 - buff])
+
+    rav, decv = wcs.xyToradec(xv, yv, units="degrees")
+    return rav, decv
+
+
+def make_input_cosmos_cat(
+    *,
+    cosmos,
+    sim,
+    nside,
+    pix,
+    seed,
+    wcs,
+    dz,
+    di,
+    dgmi,
+    dustmap_fname="SFD_dust_4096.hsp",
+):
+    """
+    """
+    rng = np.random.RandomState(seed=seed)
+
+    #################################################
+    # first we cut cosmos to what we want
+
+    # we scale the input # of objects to draw by the value for a DES coadd tile
+    # at the default cuts for Y3
+    cmsk = (
+        (cosmos["mag_i"] > 15)
+        & (cosmos["mag_i"] <= 25)
+        & (cosmos["isgal"] == 1)
+        & (cosmos["mask_flags"] == 0)
+        & (cosmos["bdf_hlr"] > 0)
+        & (cosmos["bdf_hlr"] <= 5)
+    )
+    n_cuts_orig = np.sum(cmsk)
+    n_draw_orig = 170_000
+
+    # for Y6 we are going a bit deeper in the cosmos catalog
+    cmsk = (
+        (cosmos["mag_i"] > 15)
+        & (cosmos["mag_i"] <= 25.4)
+        & (cosmos["isgal"] == 1)
+        & (cosmos["mask_flags"] == 0)
+        & (cosmos["bdf_hlr"] > 0)
+        & (cosmos["bdf_hlr"] <= 5)
+    )
+    cosmos = cosmos[cmsk]
+    n_draw = int(np.ceil(cosmos.shape[0] / n_cuts_orig * n_draw_orig))
+
+    ndraw = rng.poisson(n_draw)
+    cinds = rng.choice(cosmos.shape[0], size=ndraw, replace=True)
+    tcat = cosmos[cinds]
+
+    # now we get a random point in the cardinal data that has a coadd tile contained
+    # in the input healpixel
+    while True:
+        rac, decc = sample_from_pixel(nside, pix, rng=rng)
+        rav, decv = _get_tile_bounds_at_point(rac, decc, buff=100)
+        pixv = hpgeom.angle_to_pixel(nside, rav, decv)
+        if np.all(pixv == pix):
+            break
+
+    # we project the sim at the random input point to the data tile WCS location
+    new_ra, new_dec, new_x, new_y = project_to_tile(
+        sim["TRA"],
+        sim["TDEC"],
+        rac,
+        decc,
+        wcs,
+    )
+
+    # match cosmos to sim using only stuff that falls in the tile
+    tmsk = (
+        (new_x >= 0.5)
+        & (new_x <= 10000.5)
+        & (new_y >= 0.5)
+        & (new_y <= 10000.5)
+    )
+    inds_tmsk = np.where(tmsk)[0]
+
+    match_inds, match_flags = match_cosmos_to_cardinal(tcat, sim[tmsk], max_dz=dz, max_di=di, max_dgmi=dgmi, rng=rng)
+    match_inds = inds_tmsk[match_inds]
+
+    # build final catalog with new positions and reddened fluxes
+    final_tcat = esutil.numpy_util.add_fields(
+        tcat,
+        [
+            ("ra_sim", "f8"),
+            ("dec_sim", "f8"),
+            ("x_sim", "f8"),
+            ("y_sim", "f8"),
+            ("sim_match_flags", "i4"),
+            ("mag_g_red_sim", "f8"),
+            ("mag_r_red_sim", "f8"),
+            ("mag_i_red_sim", "f8"),
+            ("mag_z_red_sim", "f8"),
+            ("hpix_sim", "i8"),
+            ("cat_index_sim", "i8"),
+        ]
+    )
+    final_tcat["ra_sim"] = new_ra[match_inds]
+    final_tcat["dec_sim"] = new_dec[match_inds]
+    final_tcat["x_sim"] = new_x[match_inds]
+    final_tcat["y_sim"] = new_y[match_inds]
+    final_tcat["sim_match_type"] = match_flags
+    final_tcat["hpix_sim"] = pix
+    final_tcat["cat_index_sim"] = match_inds
+
+    # redden the fluxes
+    bands = ['g', 'r', 'i', 'z']
+    dustmap = _read_hsp_file("SFD_dust_4096.hsp")
+
+    dered = dustmap.get_values_pos(final_tcat["ra_sim"], final_tcat["dec_sim"])
+    for ii, b in enumerate(bands):
+        dered_fac = _compute_dered_flux_fac(ii, dered)
+        red_shift = 2.5 * np.log10(dered_fac)
+        final_tcat["mag_" + b + "_red_sim"] = final_tcat["mag_" + b + "_dered"] + red_shift
+
+    return final_tcat
+
+
+@click.command()
+@click.option("--cosmos-cat", type=str, required=True, help="Path to the cosmos catalog.")
+@click.option("--sim-glob", type=str, required=True, help="Glob pattern for the sim catalogs.")
+@click.option("--seed", type=int, required=True, help="Seed for the RNG")
+@click.option("--coadd-tile", type=str, required=True, help="Path to the coadd tile.")
+@click.option("--dz", type=float, default=0.1, help="Redshift matching radius.")
+@click.option("--di", type=float, default=0.5, help="i-band magnitude matching radius.")
+@click.option("--dgmi", type=float, default=0.5, help="g-i color matching radius.")
+@click.option("--output", type=str, required=True, help="Path to which to write the output catalog.")
+def make_input_cosmos_cat_cli(cosmos_cat, sim_glob, seed, coadd_tile, dz, di, dgmi, output):
+    """Make a cosmos catalog for input to a montara sim."""
+    all_sim_files = glob.glob(sim_glob)
+    rng = np.random.RandomState(seed=seed)
+    findex = rng.choice(len(all_sim_files))
+    sim = fitsio.read(all_sim_files[findex])
+    nside = 8
+    pix = int(all_sim_files[findex].split(".")[-2])
+
+    output_catalog = make_input_cosmos_cat(
+        cosmos=fitsio.read(cosmos_cat),
+        sim=sim,
+        nside=nside,
+        pix=pix,
+        seed=seed,
+        wcs=gs.FitsWCS(coadd_tile, hdu=1),
+        dz=dz,
+        di=di,
+        dgmi=dgmi,
+        dustmap_fname="SFD_dust_4096.hsp",
+    )
+
+    with timer("writing output"):
+        fitsio.write(output, output_catalog, clobber=True)

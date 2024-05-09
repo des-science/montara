@@ -35,6 +35,11 @@ jobs:
           mamba install pytest flake8
           python -m pip install -e .
 
+      - name: check cli
+        shell: bash -l {0}
+        run: |
+          des-montara-make-input-cosmos-cat --help
+
       - name: test
         shell: bash -l {0}
         run: |
@@ -43,4 +48,4 @@ jobs:
       - name: lint
         shell: bash -l {0}
         run: |
-          flake8 montara
+          ruff check montara
