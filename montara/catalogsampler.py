@@ -5,6 +5,10 @@ import fitsio
 
 from .utils import add_field
 
+import logging
+
+logger = logging.getLogger("pipeline")
+
 
 class CatalogSampler(object):
     """class for randomly sampling object properties from a catalog"""
@@ -64,7 +68,7 @@ class CatalogSampler(object):
         index = rand.randint(0, len(self.catalog_data))
         if self.replace is False:
             self.catalog_data = np.delete(self.catalog_data, index)
-        return self.catalog_data[index], self.dtype
+        return self.catalog_data[index], self.dtype, index
 
 
 class CatalogSamplerLoader(InputLoader):
@@ -107,6 +111,7 @@ class CatalogSamplerLoader(InputLoader):
             safe = False
         if "cuts" in config:
             kwargs["cuts"] = config["cuts"]
+
         return kwargs, safe
 
 
@@ -117,11 +122,18 @@ def CatalogRow(config, base, name):
         catalog_sampler = galsim.config.GetInputObj(
             'catalog_sampler', config, base, name,
         )
-        catalog_row_data, dtype = catalog_sampler.sample(rng)
+        catalog_row_data, dtype, catalog_row_index = catalog_sampler.sample(rng)
         colnames = dtype.names
+        base['_catalog_row_data_catalog_row_ind'] = catalog_row_index
         base['_catalog_row_data'] = catalog_row_data
         base['_catalog_sampler_index'] = index
         base['_catalog_colnames'] = colnames
+        base['_catalog_used_rngnum'] = config.get("rng_num", None)
+    else:
+        if base['_catalog_used_rngnum'] != config.get("rng_num", None):
+            raise ValueError("Catalog sampler rng num changed from %s to %s!" % (
+                base['_catalog_used_rngnum'], config.get("rng_num", None)
+            ))
 
     return base['_catalog_row_data'], base['_catalog_colnames']
 
@@ -129,6 +141,16 @@ def CatalogRow(config, base, name):
 def CatalogValue(config, base, value_type):
     row_data, colnames = CatalogRow(config, base, value_type)
     col = galsim.config.ParseValue(config, 'col', base, str)[0]
+
+    logger.log(
+        logging.DEBUG,
+        " sampling gal catalog band|index|col: %s %s %s" % (
+            base["eval_variables"]["sband"],
+            base['_catalog_row_data_catalog_row_ind'],
+            col,
+        ),
+    )
+
     try:
         return float(row_data[colnames.index(col)])
     except ValueError as e:
