@@ -12,7 +12,7 @@ import hpgeom
 from scipy.spatial import KDTree
 from esutil.pbar import PBar
 
-from des_y6utls.mdet import _read_hsp_file, _compute_dered_flux_fac
+from des_y6utils.mdet import _read_hsp_file, _compute_dered_flux_fac
 
 GLOBAL_START_TIME = time.time()
 
