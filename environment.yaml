@@ -2,10 +2,14 @@ channels:
   - conda-forge
 dependencies:
   # run
+  - click
   - galsim
   - fitsio
   - numpy
   - astropy
+  - hpgeom
+  - scipy
+  - esutil
   - pandas
   - des-eastlake
   - des-y6utils
