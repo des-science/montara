@@ -539,27 +539,41 @@ class DESTileBuilder(OutputBuilder):
         if isinstance(nobjects, dict):
             # ^ this should return True for both dict and OrderedDict
             if base['image']['nobjects']['type'] == "MixedNObjects":
-                # First get the number of galaxies. Either this will be an int, in
-                # which case
-                # ParseValue will work straightaway, or a random variable, in which
-                # case we'll
-                # need to initalize the rng and then try ParseValue again.
-                try:
-                    ngalaxies = galsim.config.ParseValue(
-                        nobjects, 'ngalaxies', base, int)[0]
-                except TypeError:
-                    seed = galsim.config.ParseValue(
-                        base['image'], 'random_seed', base, int)[0]
+                if nobjects.get("use_all_gals", False):
+                    # if we use all of the galaxies, then we look at the input desgals
+                    # object to get the number of galaxies
+                    galsim.config.input.SetupInput(base, logger=logger)
+                    key = 'desgal'
+                    field = base['input'][key]
+                    loader = galsim.config.input.valid_input_types[key]
+                    gal_input = galsim.config.GetInputObj("desgal", config, base, "desgal")
+                    if gal_input is None:
+                        kwargs, safe = loader.getKwargs(field, base, logger)
+                        kwargs['_nobjects_only'] = True
+                        gal_input = loader.init_func(**kwargs)
+                    ngalaxies = gal_input.getNObjects()
+                else:
+                    # First get the number of galaxies. Either this will be an int, in
+                    # which case
+                    # ParseValue will work straightaway, or a random variable, in which
+                    # case we'll
+                    # need to initalize the rng and then try ParseValue again.
                     try:
-                        assert (isinstance(seed, int) and (seed != 0))
-                    except AssertionError as e:
-                        logger.critical(
-                            "image.random_seed must be set to a non-zero integer for "
-                            "output type DES_Tile")
-                        raise e
-                    base['rng'] = galsim.BaseDeviate(seed)
-                    ngalaxies = galsim.config.ParseValue(nobjects, 'ngalaxies',
-                                                         base, int)[0]
+                        ngalaxies = galsim.config.ParseValue(
+                            nobjects, 'ngalaxies', base, int)[0]
+                    except TypeError:
+                        seed = galsim.config.ParseValue(
+                            base['image'], 'random_seed', base, int)[0]
+                        try:
+                            assert (isinstance(seed, int) and (seed != 0))
+                        except AssertionError as e:
+                            logger.critical(
+                                "image.random_seed must be set to a non-zero integer for "
+                                "output type DES_Tile")
+                            raise e
+                        base['rng'] = galsim.BaseDeviate(seed)
+                        ngalaxies = galsim.config.ParseValue(nobjects, 'ngalaxies',
+                                                            base, int)[0]
                 logger.log(logging.CRITICAL, "simulating %d galaxies" % ngalaxies)
 
                 if nobjects.get("use_all_stars", True):

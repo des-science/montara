@@ -1,9 +1,14 @@
+import logging
+
+import fitsio
 import galsim
 import numpy as np
 from galsim.config.input import InputLoader, RegisterInputType, GetInputObj
 from galsim.config.value import RegisterValueType
-import fitsio
+
 from .utils import add_field
+
+logger = logging.getLogger("pipeline")
 
 
 class DESGalCatalog(object):
@@ -85,6 +90,16 @@ def _GenerateFromDESGalCatalog(config, base, value_type):
     kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
     col = kwargs['col']
     index = kwargs['index']
+
+    logger.log(
+        logging.DEBUG,
+        "sampling fixed gal catalog band|index|col: %s %s %s" % (
+            base["eval_variables"]["sband"],
+            index,
+            col,
+        ),
+    )
+
     val = gal_input.get(index, col)
     return val, safe
 
