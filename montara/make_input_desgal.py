@@ -419,7 +419,7 @@ def make_input_cosmos_cat(
             ("dec_sim", "f8"),
             ("x_sim", "f8"),
             ("y_sim", "f8"),
-            ("sim_match_flags", "i4"),
+            ("sim_match_type", "i4"),
             ("mag_g_red_sim", "f8"),
             ("mag_r_red_sim", "f8"),
             ("mag_i_red_sim", "f8"),
