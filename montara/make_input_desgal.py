@@ -398,11 +398,13 @@ def make_input_cosmos_cat(
     )
 
     # match cosmos to sim using only stuff that falls in the tile
+    dx_ccd = 4096
+    dy_ccd = 2048
     tmsk = (
-        (new_x >= 0.5)
-        & (new_x <= 10000.5)
-        & (new_y >= 0.5)
-        & (new_y <= 10000.5)
+        (new_x >= 0.5 - dx_ccd)
+        & (new_x <= 10000.5 + dx_ccd)
+        & (new_y >= 0.5 - dy_ccd)
+        & (new_y <= 10000.5 + dy_ccd)
     )
     inds_tmsk = np.where(tmsk)[0]
 
