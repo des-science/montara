@@ -9,8 +9,8 @@ import numpy as np
 import fitsio
 import galsim as gs
 import hpgeom
-from scipy.spatial import KDTree
-from esutil.pbar import PBar
+# from scipy.spatial import KDTree
+# from esutil.pbar import PBar
 
 from des_y6utils.mdet import _read_hsp_file, _compute_dered_flux_fac
 
@@ -65,6 +65,8 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
         msk_cardinal_to_match_to = (
             cardinal["TMAG"][:, 2] > 17.0
         )
+        if not np.any(msk_cardinal_to_match_to):
+            raise ValueError("No cardinal objects to match to!")
         inds_msk_cardinal_to_match_to = np.where(msk_cardinal_to_match_to)[0]
         cardinal = cardinal[msk_cardinal_to_match_to]
 
@@ -88,62 +90,62 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
         cs_data[:, 2] = (mcosmos["mag_g_dered"] - mcosmos["mag_i_dered"]) / dgmi_scale_factor
 
     used_cd_inds = set()
-    all_cd_inds = np.arange(cd_data.shape[0], dtype=int)
+    # all_cd_inds = np.arange(cd_data.shape[0], dtype=int)
 
     # now find the closest nbrs in cardinal to each cosmos object
-    for fac_ind, fac in enumerate([1]):
-        with timer("doing radius search for fac %0.2f" % fac):
-            cd_avail_msk = np.isin(all_cd_inds, used_cd_inds, invert=True)
-            inds_cd_avail = np.where(cd_avail_msk)[0]
+    # for fac_ind, fac in enumerate([1]):
+    #     with timer("doing radius search for fac %0.2f" % fac):
+    #         cd_avail_msk = np.isin(all_cd_inds, used_cd_inds, invert=True)
+    #         inds_cd_avail = np.where(cd_avail_msk)[0]
 
-            tree = KDTree(cd_data[cd_avail_msk, :])
+    #         tree = KDTree(cd_data[cd_avail_msk, :])
 
-            fac_msk = match_inds[inds_msk_cosmos_to_match] == -1
-            inds_fac_msk = np.where(fac_msk)[0]
+    #         fac_msk = match_inds[inds_msk_cosmos_to_match] == -1
+    #         inds_fac_msk = np.where(fac_msk)[0]
 
-        with timer("getting best matches for fac %0.2f" % fac):
-            # do brightest things first
-            binds = np.argsort(mcosmos["mag_i_dered"][fac_msk])
+    #     with timer("getting best matches for fac %0.2f" % fac):
+    #         # do brightest things first
+    #         binds = np.argsort(mcosmos["mag_i_dered"][fac_msk])
 
-            chunk_size = 1000
-            n_chunks = int(np.ceil(inds_fac_msk.shape[0] / chunk_size))
-            for chunk_ind in PBar(range(n_chunks), desc="getting best matches for fac %0.2f" % fac):
-                chunk_start = chunk_ind * chunk_size
-                chunk_end = min((chunk_ind + 1) * chunk_size, inds_fac_msk.shape[0])
-                nbr_inds = tree.query_ball_point(
-                    cs_data[inds_fac_msk[binds[chunk_start:chunk_end]], :],
-                    max_dz * fac,
-                    eps=0.5,
-                    return_sorted=True,
-                    workers=-1,
-                )
+    #         chunk_size = 100000
+    #         n_chunks = int(np.ceil(inds_fac_msk.shape[0] / chunk_size))
+    #         for chunk_ind in PBar(range(n_chunks), desc="getting best matches for fac %0.2f" % fac):
+    #             chunk_start = chunk_ind * chunk_size
+    #             chunk_end = min((chunk_ind + 1) * chunk_size, inds_fac_msk.shape[0])
+    #             nbr_inds = tree.query_ball_point(
+    #                 cs_data[inds_fac_msk[binds[chunk_start:chunk_end]], :],
+    #                 max_dz * fac,
+    #                 eps=0.5,
+    #                 return_sorted=True,
+    #                 workers=-1,
+    #             )
 
-                # now we loop over the cosmos objects and find the closest cardinal object
-                # that has not been matched yet
-                for offset, bind in enumerate(binds[chunk_start:chunk_end]):
-                    i = inds_fac_msk[bind]
+    #             # now we loop over the cosmos objects and find the closest cardinal object
+    #             # that has not been matched yet
+    #             for offset, bind in enumerate(binds[chunk_start:chunk_end]):
+    #                 i = inds_fac_msk[bind]
 
-                    if match_inds[inds_msk_cosmos_to_match[i]] >= 0:
-                        continue
+    #                 if match_inds[inds_msk_cosmos_to_match[i]] >= 0:
+    #                     continue
 
-                    cd_nbr_inds = [inds_cd_avail[ind] for ind in nbr_inds[offset]]
+    #                 cd_nbr_inds = [inds_cd_avail[ind] for ind in nbr_inds[offset]]
 
-                    allowed_inds = [ind for ind in cd_nbr_inds if ind not in used_cd_inds and ind < cd_data.shape[0]]
-                    if allowed_inds:
-                        min_ind = allowed_inds[0]
-                        used_cd_inds.add(min_ind)
-                        match_inds[inds_msk_cosmos_to_match[i]] = inds_msk_cardinal_to_match_to[min_ind]
-                        match_flags[inds_msk_cosmos_to_match[i]] |= 2**0
+    #                 allowed_inds = [ind for ind in cd_nbr_inds if ind not in used_cd_inds and ind < cd_data.shape[0]]
+    #                 if allowed_inds:
+    #                     min_ind = allowed_inds[0]
+    #                     used_cd_inds.add(min_ind)
+    #                     match_inds[inds_msk_cosmos_to_match[i]] = inds_msk_cardinal_to_match_to[min_ind]
+    #                     match_flags[inds_msk_cosmos_to_match[i]] |= 2**0
 
-        print(
-            "found matches for %0.2f percent of cosmos w/ z < 2.3 at fac %0.2f" % (
-                np.sum(match_inds >= 0)
-                / inds_msk_cosmos_to_match.shape[0]
-                * 100,
-                fac,
-            ),
-            flush=True,
-        )
+    #             print(
+    #                 "found matches for %0.2f percent of cosmos w/ z < 2.3 at fac %0.2f" % (
+    #                     np.sum(match_inds >= 0)
+    #                     / inds_msk_cosmos_to_match.shape[0]
+    #                     * 100,
+    #                     fac,
+    #                 ),
+    #                 flush=True,
+    #             )
 
     # anything that didn't match gets a position from the same redshift in slices
     # we gradually expand the bin size until everything is matched
