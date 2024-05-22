@@ -332,6 +332,29 @@ def _get_tile_bounds_at_point(cen_ra, cen_dec, buff=0):
     return rav, decv
 
 
+def ratio_mag(mag, *coeffs):
+    if len(coeffs) == 0:
+        coeffs = [
+            -1.06490672e+02,
+            1.74424846e+00,
+            -1.17390019e-02,
+            3.80657424e-05,
+            -5.87562207e-08,
+            3.47153346e-11,
+        ]
+    poly = np.zeros_like(mag)
+    for i, c in enumerate(coeffs):
+        poly += c * mag**(2*i)
+    return 1.0 / (1.0 + np.exp(-poly))
+
+
+def _get_cosmos_renorm(cosmos):
+    bins = np.linspace(17, 27, 100)
+    hcosmos = np.histogram(cosmos["mag_i_dered"], bins=bins, density=True)[0]
+    _mag = (bins[:-1] + bins[1:]) / 2
+    return np.trapz(hcosmos / ratio_mag(_mag), _mag) / np.trapz(hcosmos, _mag)
+
+
 def make_input_cosmos_cat(
     *,
     cosmos,
@@ -351,6 +374,8 @@ def make_input_cosmos_cat(
 
     #################################################
     # first we cut cosmos to what we want
+
+    oversampling_factor = _get_cosmos_renorm(cosmos)
 
     # we scale the input # of objects to draw by the value for a DES coadd tile
     # at the default cuts for Y3
@@ -375,10 +400,12 @@ def make_input_cosmos_cat(
         & (cosmos["bdf_hlr"] <= 5)
     )
     cosmos = cosmos[cmsk]
-    n_draw = int(np.ceil(cosmos.shape[0] / n_cuts_orig * n_draw_orig))
+    n_draw = int(np.ceil(cosmos.shape[0] / n_cuts_orig * n_draw_orig * oversampling_factor))
 
     ndraw = rng.poisson(n_draw)
-    cinds = rng.choice(cosmos.shape[0], size=ndraw, replace=True)
+    prob = 1.0 / ratio_mag(cosmos["mag_i_dered"])
+    prob /= np.sum(prob)
+    cinds = rng.choice(cosmos.shape[0], size=ndraw, p=prob, replace=True)
     tcat = cosmos[cinds]
 
     # now we get a random point in the cardinal data that has a coadd tile contained
