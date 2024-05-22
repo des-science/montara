@@ -332,7 +332,7 @@ def _get_tile_bounds_at_point(cen_ra, cen_dec, buff=0):
     return rav, decv
 
 
-def ratio_mag(mag, *coeffs):
+def ratio_mag_v3(mag, *coeffs):
     if len(coeffs) == 0:
         coeffs = [
             -1.06490672e+02,
@@ -346,6 +346,19 @@ def ratio_mag(mag, *coeffs):
     for i, c in enumerate(coeffs):
         poly += c * mag**(2*i)
     return 1.0 / (1.0 + np.exp(-poly))
+
+
+def ratio_mag_v4(mag, *coeffs):
+    if len(coeffs) == 0:
+        coeffs = [-3.05005992e+01,  1.29795854e-01, -1.39023858e-04,  4.33811478e-08]
+    x = mag
+    poly = np.zeros_like(x)
+    for i, c in enumerate(coeffs):
+        poly += c * x**(2*i)
+    return 1.0 / (1.0 + np.exp(-poly))
+
+
+ratio_mag = ratio_mag_v4
 
 
 def _get_cosmos_renorm(cosmos):
