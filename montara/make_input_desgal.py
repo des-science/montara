@@ -1,24 +1,20 @@
 from contextlib import contextmanager
-import glob
 import time
 import sys
 
-import click
 import esutil
 import numpy as np
-import fitsio
 import galsim as gs
 import hpgeom
-# from scipy.spatial import KDTree
-# from esutil.pbar import PBar
 
 from des_y6utils.mdet import _read_hsp_file, _compute_dered_flux_fac
 
 GLOBAL_START_TIME = time.time()
+SILENT = True
 
 
 @contextmanager
-def timer(name, silent=False):
+def timer(name, silent=SILENT):
     """A simple timer context manager.
 
     Exmaple usage:
@@ -50,7 +46,44 @@ def timer(name, silent=False):
         )
 
 
-def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng):
+def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, rng):
+    """Match a cosmos catalog to cardinal.
+
+    The matching is done by breaking the catalog up into redshift bins of size `max_dz`.
+    Within each redshift bin, we use an abundance matching-like scheme to find the best
+    cardinal galaxy for each cosmos galaxy. We sort both catalogs by magnitude and match
+    the sorted lists, element by element. Assuming the cardinal catalog has approximately
+    the same density and area as the input cosmos catalog, this scheme is roughly
+    equivalent to abundance matching.
+
+    The cardinal simulation typically stops at redshift 2.3. Objects at a redshift higher than
+    this are matched at random to objects at the faint end of the cardinal catalog (fainter
+    than 25th magnitude).
+
+    Parameters
+    ----------
+    cosmos : np.ndarray
+        The cosmos catalog to match to cardinal. Needs to have columns `photoz` and
+        `mag_i_dered`.
+    cardinal : np.ndarray
+        The cardinal catalog to match to. Needs to have columns `Z` and `TMAG`.
+    max_dz : float
+        The starting redshift bin size to use. Values around 0.1 are reasonable.
+        The code will use bigger bins if it can't find matches.
+    rng : np.random.RandomState
+        The random number generator to use.
+
+    Returns
+    -------
+    match_inds : np.ndarray
+        An array of indices into the cardinal catalog for each cosmos galaxy.
+    match_flags : np.ndarray
+        An array of flags indicating how the match was made.
+
+            - 2**30 means no match was made
+            - 2**0 means a match was made in the redshift bin
+            - 2**1 means a match was made at random to a faint object
+    """
     with timer("making catalogs"):
         # we cut the cosmos redshift range to match cardinal
         match_inds = np.zeros(len(cosmos), dtype=int) - 1
@@ -70,84 +103,10 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
         inds_msk_cardinal_to_match_to = np.where(msk_cardinal_to_match_to)[0]
         cardinal = cardinal[msk_cardinal_to_match_to]
 
-        # we match in i-band, g-i color, and photo-z
-        # we scale the photo-z by 3 to match the typical range of magnitudes
-        # this has the side effect of equating differences of 0.1 in photo-z to 0.3
-        # in magnitudes or colors, which is about right
-        n_features = 3
-        di_scale_factor = max_di / max_dz
-        dgmi_scale_factor = max_dgmi / max_dz
-        cd_data = np.zeros((cardinal.shape[0], n_features))
-        cd_data[:, 0] = cardinal["Z"]
-        # i-band
-        cd_data[:, 1] = cardinal["TMAG"][:, 2] / di_scale_factor
-        # g-i color
-        cd_data[:, 2] = (cardinal["TMAG"][:, 0] - cardinal["TMAG"][:, 2]) / dgmi_scale_factor
+        # this set holds galaxies we have used
+        used_cd_inds = set()
 
-        cs_data = np.zeros((mcosmos.shape[0], n_features))
-        cs_data[:, 0] = mcosmos["photoz"]
-        cs_data[:, 1] = mcosmos["mag_i_dered"] / di_scale_factor
-        cs_data[:, 2] = (mcosmos["mag_g_dered"] - mcosmos["mag_i_dered"]) / dgmi_scale_factor
-
-    used_cd_inds = set()
-    # all_cd_inds = np.arange(cd_data.shape[0], dtype=int)
-
-    # now find the closest nbrs in cardinal to each cosmos object
-    # for fac_ind, fac in enumerate([1]):
-    #     with timer("doing radius search for fac %0.2f" % fac):
-    #         cd_avail_msk = np.isin(all_cd_inds, used_cd_inds, invert=True)
-    #         inds_cd_avail = np.where(cd_avail_msk)[0]
-
-    #         tree = KDTree(cd_data[cd_avail_msk, :])
-
-    #         fac_msk = match_inds[inds_msk_cosmos_to_match] == -1
-    #         inds_fac_msk = np.where(fac_msk)[0]
-
-    #     with timer("getting best matches for fac %0.2f" % fac):
-    #         # do brightest things first
-    #         binds = np.argsort(mcosmos["mag_i_dered"][fac_msk])
-
-    #         chunk_size = 100000
-    #         n_chunks = int(np.ceil(inds_fac_msk.shape[0] / chunk_size))
-    #         for chunk_ind in PBar(range(n_chunks), desc="getting best matches for fac %0.2f" % fac):
-    #             chunk_start = chunk_ind * chunk_size
-    #             chunk_end = min((chunk_ind + 1) * chunk_size, inds_fac_msk.shape[0])
-    #             nbr_inds = tree.query_ball_point(
-    #                 cs_data[inds_fac_msk[binds[chunk_start:chunk_end]], :],
-    #                 max_dz * fac,
-    #                 eps=0.5,
-    #                 return_sorted=True,
-    #                 workers=-1,
-    #             )
-
-    #             # now we loop over the cosmos objects and find the closest cardinal object
-    #             # that has not been matched yet
-    #             for offset, bind in enumerate(binds[chunk_start:chunk_end]):
-    #                 i = inds_fac_msk[bind]
-
-    #                 if match_inds[inds_msk_cosmos_to_match[i]] >= 0:
-    #                     continue
-
-    #                 cd_nbr_inds = [inds_cd_avail[ind] for ind in nbr_inds[offset]]
-
-    #                 allowed_inds = [ind for ind in cd_nbr_inds if ind not in used_cd_inds and ind < cd_data.shape[0]]
-    #                 if allowed_inds:
-    #                     min_ind = allowed_inds[0]
-    #                     used_cd_inds.add(min_ind)
-    #                     match_inds[inds_msk_cosmos_to_match[i]] = inds_msk_cardinal_to_match_to[min_ind]
-    #                     match_flags[inds_msk_cosmos_to_match[i]] |= 2**0
-
-    #             print(
-    #                 "found matches for %0.2f percent of cosmos w/ z < 2.3 at fac %0.2f" % (
-    #                     np.sum(match_inds >= 0)
-    #                     / inds_msk_cosmos_to_match.shape[0]
-    #                     * 100,
-    #                     fac,
-    #                 ),
-    #                 flush=True,
-    #             )
-
-    # anything that didn't match gets a position from the same redshift in slices
+    # now we match to cardinal in redshift bins and use ~abundance matching within each one
     # we gradually expand the bin size until everything is matched
     for facind in range(10):
         if np.all(match_inds[inds_msk_cosmos_to_match] >= 0):
@@ -173,32 +132,37 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
                         & (cardinal["Z"] < zmax)
                     )
                     if np.any(cd_msk):
-                        # remove used inds
-                        cd_inds = set(_ind for _ind in np.where(cd_msk)[0]) - used_cd_inds
-                        cd_inds = np.fromiter(cd_inds, dtype=int)
-                        # rng.shuffle(cd_inds)
-                        binds = np.argsort(cardinal["TMAG"][cd_inds, 2])
-                        cd_inds = cd_inds[binds]
-
                         # sort cosmos by i-band magnitude so brightest get matches first
                         cs_inds = np.where(cs_msk)[0]
                         binds = np.argsort(mcosmos["mag_i_dered"][cs_inds])
                         cs_inds = cs_inds[binds]
 
-                        # now assign the most we can
+                        # remove used cardinal inds
+                        cd_inds = set(_ind for _ind in np.where(cd_msk)[0]) - used_cd_inds
+                        cd_inds = np.fromiter(cd_inds, dtype=int)
+
+                        # can match at most this many
                         max_match = min(len(cs_inds), len(cd_inds))
-                        match_inds[inds_msk_cosmos_to_match[cs_inds[:max_match]]] = inds_msk_cardinal_to_match_to[cd_inds[:max_match]]
-                        match_flags[inds_msk_cosmos_to_match[cs_inds[:max_match]]] |= 2**1
+
+                        # select at random and sort by magnitude
+                        binds = np.argsort(cardinal["TMAG"][cd_inds, 2])
+                        cd_inds = cd_inds[binds]
+
+                        # now assign
+                        match_inds[inds_msk_cosmos_to_match[cs_inds[:max_match]]] \
+                            = inds_msk_cardinal_to_match_to[cd_inds[:max_match]]
+                        match_flags[inds_msk_cosmos_to_match[cs_inds[:max_match]]] = 2**0
                         used_cd_inds.update(cd_inds[:max_match])
 
-        print(
-            "found matches for %0.2f percent of cosmos w/ z < 2.3" % (
-                np.sum(match_inds >= 0)
-                / inds_msk_cosmos_to_match.shape[0]
-                * 100
-            ),
-            flush=True,
-        )
+        if not SILENT:
+            print(
+                "found matches for %0.2f percent of cosmos w/ z < 2.3" % (
+                    np.sum(match_inds >= 0)
+                    / inds_msk_cosmos_to_match.shape[0]
+                    * 100
+                ),
+                flush=True,
+            )
 
     with timer("assigning anything else to something at faint magnitude at random"):
         cs_msk = match_inds == -1
@@ -218,16 +182,17 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
         # now assign the most we can
         max_match = min(len(cs_inds), len(cd_inds))
         match_inds[cs_inds[:max_match]] = inds_msk_cardinal_to_match_to[cd_inds[:max_match]]
-        match_flags[cs_inds[:max_match]] |= 2**2
+        match_flags[cs_inds[:max_match]] = 2**1
 
-    print(
-        "found matches for %0.2f percent of cosmos" % (
-            np.sum(match_inds >= 0)
-            / match_inds.shape[0]
-            * 100
-        ),
-        flush=True,
-    )
+    if not SILENT:
+        print(
+            "found matches for %0.2f percent of cosmos" % (
+                np.sum(match_inds >= 0)
+                / match_inds.shape[0]
+                * 100
+            ),
+            flush=True,
+        )
 
     assert np.all(match_inds >= 0)
     assert np.unique(match_inds).shape[0] == match_inds.shape[0]
@@ -236,6 +201,33 @@ def match_cosmos_to_cardinal(cosmos, cardinal, *, max_dz, max_di, max_dgmi, rng)
 
 
 def project_to_tile(ra, dec, cen_ra, cen_dec, tile_wcs):
+    """Project points at ra,dec about cen_ra,cen_dec to the same relative position
+    in the tile_wcs.
+
+    Parameters
+    ----------
+    ra : np.ndarray
+        The right ascension of the points to project in decimal degrees.
+    dec : np.ndarray
+        The declination of the points to project in decimal degrees.
+    cen_ra : float
+        The right ascension of the center of the region to project in decimal degrees.
+    cen_dec : float
+        The declination of the center of the region to project in decimal degrees.
+    tile_wcs : galsim.TanWCS
+        The WCS of the DES coadd tile to project to.
+
+    Returns
+    -------
+    new_ra : np.ndarray
+        The right ascension of the projected points in decimal degrees.
+    new_dec : np.ndarray
+        The declination of the projected points in decimal degrees.
+    new_x : np.ndarray
+        The x pixel coordinate of the projected points in the tile_wcs.
+    new_y : np.ndarray
+        The y pixel coordinate of the projected points in the tile_wcs.
+    """
     # build the DES-style coadd WCS at center ra,dec
     aft = gs.AffineTransform(
         -0.263,
@@ -262,6 +254,29 @@ def project_to_tile(ra, dec, cen_ra, cen_dec, tile_wcs):
 
 
 def sample_from_pixel(nside, pix, size=None, nest=True, rng=None):
+    """Sample a point on the sky randomly from a pixel.
+
+    Parameters
+    ----------
+    nside : int
+        The nside of the healpix grid.
+    pix : int
+        The pixel to sample from.
+    size : tuple, optional
+        The size of the output. If None, a single point is returned.
+    nest : bool, optional
+        Whether the healpix pixel index `pix` is in the NEST or RING scheme.
+    rng : np.random.RandomState or int, optional
+        The random number generator to use. If an integer is passed, a new
+        random number generator is created with the seed set to this value.
+
+    Returns
+    -------
+    ra : float or np.ndarray
+        The right ascension of the sampled point(s) in decimal degrees.
+    dec : float or np.ndarray
+        The declination of the sampled point(s) in decimal degrees.
+    """
     if not isinstance(rng, np.random.RandomState):
         rng = np.random.RandomState(seed=rng)
 
@@ -332,7 +347,7 @@ def _get_tile_bounds_at_point(cen_ra, cen_dec, buff=0):
     return rav, decv
 
 
-def ratio_mag_v3(mag, *coeffs):
+def _ratio_mag_v3(mag, *coeffs):
     if len(coeffs) == 0:
         coeffs = [
             -1.06490672e+02,
@@ -348,7 +363,7 @@ def ratio_mag_v3(mag, *coeffs):
     return 1.0 / (1.0 + np.exp(-poly))
 
 
-def ratio_mag_v4(mag, *coeffs):
+def _ratio_mag_v45(mag, *coeffs):
     if len(coeffs) == 0:
         coeffs = [-3.05005992e+01,  1.29795854e-01, -1.39023858e-04,  4.33811478e-08]
     x = mag
@@ -358,7 +373,7 @@ def ratio_mag_v4(mag, *coeffs):
     return 1.0 / (1.0 + np.exp(-poly))
 
 
-ratio_mag = ratio_mag_v4
+ratio_mag = _ratio_mag_v45
 
 
 def _get_cosmos_renorm(cosmos):
@@ -377,11 +392,59 @@ def make_input_cosmos_cat(
     seed,
     wcs,
     dz,
-    di,
-    dgmi,
     dustmap_fname="SFD_dust_4096.hsp",
 ):
-    """
+    """Make a cosmos catalog to input to the DES Y6 image simulations.
+
+    Parameters
+    ----------
+    cosmos : np.ndarray
+        The cosmos catalog to use. Needs to have columns `mag_i`, `mag_i_dered`,
+        `isgal`, `mask_flags`, and `bdf_hlr`.
+    sim : np.ndarray
+        The cardinal catalog to use. Needs to have columns `TRA`, `TDEC`, `Z`, `TMAG`.
+    nside : int
+        The nside of the healpix grid for the sim catalog.
+    pix : int
+        The healpix pixel index of the sim catalog in the NEST scheme.
+    seed : int
+        The seed for the random number generator.
+    wcs : galsim.TanWCS
+        The WCS of the DES coadd tile for which the sim catalog is intended.
+    dz : float
+        The starting size of the redshift bins for matching between cosmos and the sim.
+    dustmap_fname : str, optional
+        The filename of the dustmap to use. This will be downloaded if it is not present locally.
+
+    Returns
+    -------
+    final_tcat : np.ndarray
+        The cosmos catalog with the following additional columns:
+
+            - ra_sim : float
+                The right ascension of the object in the sim catalog in decimal degrees.
+            - dec_sim : float
+                The declination of the object in the sim catalog in decimal degrees.
+            - x_sim : float
+                The x pixel coordinate of the object in the sim catalog in the tile WCS.
+            - y_sim : float
+                The y pixel coordinate of the object in the sim catalog in the tile WCS.
+            - match_type_sim : int
+                The type of match made to the sim catalog. 2**30 means no match was made,
+                2**0 means a match was made in the redshift bin, and 2**1 means a match was
+                made at random to a faint object.
+            - mag_g_red_sim : float
+                The reddened g-band magnitude of the object in the sim catalog.
+            - mag_r_red_sim : float
+                The reddened r-band magnitude of the object in the sim catalog.
+            - mag_i_red_sim : float
+                The reddened i-band magnitude of the object in the sim catalog.
+            - mag_z_red_sim : float
+                The reddened z-band magnitude of the object in the sim catalog.
+            - hpix_sim : int
+                The healpix pixel index of the sim catalog in the NEST scheme.
+            - cat_index_sim : int
+                The index of the object in the sim catalog.
     """
     rng = np.random.RandomState(seed=seed)
 
@@ -450,7 +513,7 @@ def make_input_cosmos_cat(
     )
     inds_tmsk = np.where(tmsk)[0]
 
-    match_inds, match_flags = match_cosmos_to_cardinal(tcat, sim[tmsk], max_dz=dz, max_di=di, max_dgmi=dgmi, rng=rng)
+    match_inds, match_flags = match_cosmos_to_cardinal(tcat, sim[tmsk], max_dz=dz, rng=rng)
     match_inds = inds_tmsk[match_inds]
 
     # build final catalog with new positions and reddened fluxes
@@ -461,7 +524,7 @@ def make_input_cosmos_cat(
             ("dec_sim", "f8"),
             ("x_sim", "f8"),
             ("y_sim", "f8"),
-            ("sim_match_type", "i4"),
+            ("match_type_sim", "i4"),
             ("mag_g_red_sim", "f8"),
             ("mag_r_red_sim", "f8"),
             ("mag_i_red_sim", "f8"),
@@ -474,7 +537,7 @@ def make_input_cosmos_cat(
     final_tcat["dec_sim"] = new_dec[match_inds]
     final_tcat["x_sim"] = new_x[match_inds]
     final_tcat["y_sim"] = new_y[match_inds]
-    final_tcat["sim_match_type"] = match_flags
+    final_tcat["match_type_sim"] = match_flags
     final_tcat["hpix_sim"] = pix
     final_tcat["cat_index_sim"] = match_inds
 
@@ -489,38 +552,3 @@ def make_input_cosmos_cat(
         final_tcat["mag_" + b + "_red_sim"] = final_tcat["mag_" + b + "_dered"] + red_shift
 
     return final_tcat
-
-
-@click.command()
-@click.option("--cosmos-cat", type=str, required=True, help="Path to the cosmos catalog.")
-@click.option("--sim-glob", type=str, required=True, help="Glob pattern for the sim catalogs.")
-@click.option("--seed", type=int, required=True, help="Seed for the RNG")
-@click.option("--coadd-tile", type=str, required=True, help="Path to the coadd tile.")
-@click.option("--dz", type=float, default=0.1, help="Redshift matching radius.")
-@click.option("--di", type=float, default=0.5, help="i-band magnitude matching radius.")
-@click.option("--dgmi", type=float, default=0.5, help="g-i color matching radius.")
-@click.option("--output", type=str, required=True, help="Path to which to write the output catalog.")
-def make_input_cosmos_cat_cli(cosmos_cat, sim_glob, seed, coadd_tile, dz, di, dgmi, output):
-    """Make a cosmos catalog for input to a montara sim."""
-    all_sim_files = glob.glob(sim_glob)
-    rng = np.random.RandomState(seed=seed)
-    findex = rng.choice(len(all_sim_files))
-    sim = fitsio.read(all_sim_files[findex])
-    nside = 8
-    pix = int(all_sim_files[findex].split(".")[-2])
-
-    output_catalog = make_input_cosmos_cat(
-        cosmos=fitsio.read(cosmos_cat),
-        sim=sim,
-        nside=nside,
-        pix=pix,
-        seed=seed,
-        wcs=gs.FitsWCS(coadd_tile, hdu=1),
-        dz=dz,
-        di=di,
-        dgmi=dgmi,
-        dustmap_fname="SFD_dust_4096.hsp",
-    )
-
-    with timer("writing output"):
-        fitsio.write(output, output_catalog, clobber=True)
