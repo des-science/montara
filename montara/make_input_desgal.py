@@ -373,7 +373,17 @@ def _ratio_mag_v45(mag, *coeffs):
     return 1.0 / (1.0 + np.exp(-poly))
 
 
-ratio_mag = _ratio_mag_v45
+def _ratio_mag_v6(mag, *coeffs):
+    if len(coeffs) == 0:
+        coeffs = [-4.81181605e+01,  2.49037882e-01, -3.96914217e-04,  2.16742025e-07]
+    x = mag
+    poly = np.zeros_like(x)
+    for i, c in enumerate(coeffs):
+        poly += c * x**(2*i)
+    return 1.0 / (1.0 + np.exp(-poly))
+
+
+ratio_mag = _ratio_mag_v6
 
 
 def _get_cosmos_renorm(cosmos):
