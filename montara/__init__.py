@@ -21,4 +21,4 @@ from . import badpixfromfits  # noqa
 from . import eastlake_step  # noqa
 from . import eval_gsobject  # noqa
 from . import input_desgal  # noqa
-from .make_input_desgal import make_input_cosmos_cat_cli  # noqa
+from . import make_input_desgal  # noqa
