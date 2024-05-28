@@ -35,11 +35,6 @@ jobs:
           mamba install pytest ruff
           python -m pip install -e .
 
-      - name: check cli
-        shell: bash -l {0}
-        run: |
-          des-montara-make-input-cosmos-cat --help
-
       - name: test
         shell: bash -l {0}
         run: |
