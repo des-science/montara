@@ -32,8 +32,8 @@ jobs:
       - name: configure conda and install code
         shell: bash -l {0}
         run: |
-          mamba install pytest flake8
-          python -m pip install -e .
+          conda install pytest ruff --yes --quiet
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: test
         shell: bash -l {0}
@@ -43,4 +43,4 @@ jobs:
       - name: lint
         shell: bash -l {0}
         run: |
-          flake8 montara
+          ruff check montara
